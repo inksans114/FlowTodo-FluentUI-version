@@ -1,0 +1,42 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ===== 虚拟环境 =====
+venv/
+.venv/
+env/
+ENV/
+
+# ===== 构建产物 =====
+build/
+dist/
+*.egg-info/
+*.spec
+
+# ===== 日志 =====
+*.log
+
+# ===== 备份 / 临时文件 =====
+*.bak
+*.bak_*
+*~
+*.tmp
+*.temp
+nuitka-crash-report.xml
+
+# ===== IDE / 编辑器 =====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== 运行时配置（本地数据，不入库） =====
+RinUI/config/
+
+# ===== 操作系统 =====
+.DS_Store
+Thumbs.db
+desktop.ini

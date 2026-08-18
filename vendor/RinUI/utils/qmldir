@@ -1,0 +1,5 @@
+singleton Typography 1.0 Typography.qml
+singleton Severity 1.0 Severity.qml
+singleton Position 1.0 Position.qml
+FloatLayer 1.0 FloatLayer.qml
+singleton FontIconLoader 1.0 FontIconLoader.qml

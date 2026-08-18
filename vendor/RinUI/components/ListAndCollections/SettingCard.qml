@@ -1,0 +1,90 @@
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 2.15
+import RinUI
+
+
+// 自定义控件演示 / Custom control demonstration //
+Frame {
+    id: settingCard
+    default property alias content: rightContent.data
+    // property alias showcase: showcaseContainer.data
+    property string title
+    property alias icon: icon
+    property alias actionIcon: actIcon
+    property string description
+
+    signal clicked()
+    property bool clickable: false  // 需要手动启用
+    hoverable: clickable  // hover效果
+
+    leftPadding: 18
+    rightPadding: 18
+    topPadding: 16
+    bottomPadding: 16
+    // implicitHeight: 62
+
+    TapHandler {
+        id: tapHandler
+        enabled: clickable
+        onTapped: clicked()
+    }
+
+    RowLayout {
+        anchors.fill: parent
+        spacing: 16
+
+        RowLayout {
+            id: leftContent
+            Layout.maximumWidth: parent.width * 0.6
+            Layout.fillHeight: true
+            spacing: 18
+
+            Icon {
+                id: icon
+                size: 22
+                visible: name !== "" || source !== ""
+            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+                Text {
+                    id: titleLabel
+                    Layout.fillWidth: true
+                    typography: Typography.Body
+                    text: title
+                    maximumLineCount: 2  // 限制最多两行
+                    elide: Text.ElideRight  // 超过限制时用省略号
+                    visible: settingCard.title.length
+                }
+
+                Text {
+                    id: discriptionLabel
+                    Layout.fillWidth: true
+                    typography: Typography.Caption
+                    text: description
+                    color: Theme.currentTheme.colors.textSecondaryColor
+                    wrapMode: Text.Wrap  // 启用换行
+                    maximumLineCount: 3
+                    elide: Text.ElideRight
+                    visible: settingCard.description.length
+                }
+            }
+        }
+        RowLayout {
+            id: rightContent
+            Layout.fillHeight: true
+            Layout.alignment: Qt.AlignRight
+            spacing: 8
+        }
+
+        Icon {
+            id: actIcon
+            name: "ic_fluent_chevron_right_20_regular"
+            size: 16
+            visible: clickable
+            opacity: !enabled ? 0.5 : 1
+        }
+    }
+    opacity: tapHandler.pressed ? 0.6 : 1
+}

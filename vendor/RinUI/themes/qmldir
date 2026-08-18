@@ -1,0 +1,10 @@
+module RinUI.themes
+
+singleton Theme 1.0 theme.qml
+singleton Utils 1.0 utils.qml
+singleton Colors Colors.qml
+singleton Appearance Appearance.qml
+
+
+Light 1.0 light.qml
+Dark 1.0 dark.qml

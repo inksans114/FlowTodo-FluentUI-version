@@ -1,0 +1,132 @@
+module RinUI
+
+singleton Theme 1.0 themes/theme.qml
+singleton Utils 1.0 themes/utils.qml
+singleton Colors 1.0 themes/Colors.qml
+singleton Appearance 1.0 themes/Appearance.qml
+
+Shadow 1.0 components/Shadow.qml
+AcrylicBrush 1.0 components/Styles/AcrylicBrush.qml
+FocusIndicator 1.0 components/FocusIndicator.qml
+
+# Basic Input
+Button 1.0 components/BasicInput/Button.qml
+RoundButton 1.0 components/BasicInput/RoundButton.qml
+PillButton 1.0 components/BasicInput/PillButton.qml
+DropDownButton 1.0 components/BasicInput/DropDownButton.qml
+ToggleButton 1.0 components/BasicInput/ToggleButton.qml
+ToolButton 1.0 components/BasicInput/ToolButton.qml
+ComboBox 1.0 components/BasicInput/ComboBox.qml
+Switch 1.0 components/BasicInput/Switch.qml
+Hyperlink 1.0 components/BasicInput/Hyperlink.qml
+RadioButton 1.0 components/BasicInput/RadioButton.qml
+CheckBox 1.0 components/BasicInput/CheckBox.qml
+Slider 1.0 components/BasicInput/Slider.qml
+ColorPicker 1.0 components/BasicInput/ColorPicker.qml
+DropDownColorPicker 1.0 components/BasicInput/DropDownColorPicker.qml
+
+# Date & Time
+TimePicker 1.0 components/DateAndTime/TimePicker.qml
+DatePicker 1.0 components/DateAndTime/DatePicker.qml
+DateField 1.0 components/DateAndTime/DateField.qml
+PickerView 1.0 components/DateAndTime/PickerView.qml
+Calendar 1.0 components/DateAndTime/Calendar.qml
+
+# Dialogs & Flyouts
+Dialog 1.0 components/DialogsAndFlyouts/Dialog.qml
+DialogButtonBox 1.0 components/DialogsAndFlyouts/DialogButtonBox.qml
+Flyout 1.0 components/DialogsAndFlyouts/Flyout.qml
+Popup 1.0 components/DialogsAndFlyouts/Popup.qml
+TeachingTip 1.0 components/DialogsAndFlyouts/TeachingTip.qml
+
+# Layout
+Expander 1.0 components/Layout/Expander.qml
+SettingExpander 1.0 components/Layout/SettingExpander.qml
+SettingItem 1.0 components/Layout/SettingItem.qml
+RoundedCornerOverlay 1.0 components/Layout/RoundedCornerOverlay.qml
+
+
+# Text
+Text 1.0 components/Text/Text.qml
+TextField 1.0 components/Text/TextField.qml
+TextArea 1.0 components/Text/TextArea.qml
+ScrollableTextArea 1.0 components/Text/ScrollableTextArea.qml
+SpinBox 1.0 components/Text/SpinBox.qml
+TextInput 1.0 components/Text/TextInput.qml
+AutoSuggestBox 1.0 components/Text/AutoSuggestBox.qml
+
+
+# Scrolling
+PageIndicator 1.0 components/Scrolling/PageIndicator.qml
+
+
+# Status & Info
+InfoBadge 1.0 components/StatusAndInfo/InfoBadge.qml
+InfoBar 1.0 components/StatusAndInfo/InfoBar.qml
+ProgressBar 1.0 components/StatusAndInfo/ProgressBar.qml
+ProgressRing 1.0 components/StatusAndInfo/ProgressRing.qml
+ToolTip 1.0 components/StatusAndInfo/ToolTip.qml
+BusyIndicator 1.0 components/StatusAndInfo/BusyIndicator.qml
+
+# ListAndCollections
+Clip 1.0 components/ListAndCollections/Clip.qml
+Frame 1.0 components/ListAndCollections/Frame.qml
+SettingCard 1.0 components/ListAndCollections/SettingCard.qml
+ListView 1.0 components/ListAndCollections/ListView.qml
+ListViewDelegate 1.0 components/ListAndCollections/ListViewDelegate.qml
+TableView 1.0 components/ListAndCollections/TableView.qml
+TableViewDelegate 1.0 components/ListAndCollections/TableViewDelegate.qml
+HorizontalHeaderView 1.0 components/ListAndCollections/HorizontalHeaderView.qml
+HorizontalHeaderViewDelegate 1.0 components/ListAndCollections/HorizontalHeaderViewDelegate.qml
+VerticalHeaderView 1.0 components/ListAndCollections/VerticalHeaderView.qml
+VerticalHeaderViewDelegate 1.0 components/ListAndCollections/VerticalHeaderViewDelegate.qml
+SwipeView 1.0 components/ListAndCollections/SwipeView.qml
+
+# Menus & Toolbars
+Menu 1.0 components/MenusAndToolbars/Menu.qml
+TextInputMenu 1.0 components/MenusAndToolbars/TextInputMenu.qml
+MenuItem 1.0 components/MenusAndToolbars/MenuItem.qml
+MenuItemGroup 1.0 components/MenusAndToolbars/MenuItemGroup.qml
+MenuSeparator 1.0 components/MenusAndToolbars/MenuSeparator.qml
+ToolSeparator 1.0 components/MenusAndToolbars/ToolSeparator.qml
+MenuBar 1.0 components/MenusAndToolbars/MenuBar.qml
+
+# Media
+Avatar 1.0 components/Media/Avatar.qml
+
+# Navigation
+NavigationView 1.0 components/Navigation/NavigationView.qml
+NavigationBar 1.0 components/Navigation/NavigationBar.qml
+SelectorBar 1.0 components/Navigation/SelectorBar.qml
+SelectorBarItem 1.0 components/Navigation/SelectorBarItem.qml
+Segmented 1.0 components/Navigation/Segmented.qml
+SegmentedItem 1.0 components/Navigation/SegmentedItem.qml
+
+
+# Window
+ApplicationWindow 1.0 windows/window/ApplicationWindow.qml
+Window 1.0 windows/window/Window.qml
+
+
+ScrollViewer 1.0 components/ScrollViewer.qml
+ScrollBar 1.0 components/ScrollBar.qml
+
+IconWidget 1.0 components/Icon.qml
+Icon 1.0 components/Icon.qml
+
+
+ContextMenu 1.0 components/ContextMenu.qml
+
+FluentWindow 1.0 windows/FluentWindow.qml
+FluentWindowBase 1.0 windows/FluentWindowBase.qml
+CtrlBtn 1.0 windows/CtrlBtn.qml
+FluentPage 1.0 windows/FluentPage.qml
+
+singleton Typography 1.0 utils/Typography.qml
+singleton Severity 1.0 utils/Severity.qml
+singleton Position 1.0 utils/Position.qml
+
+FloatLayer 1.0 utils/FloatLayer.qml
+
+# Date & Time (extended)
+CalendarDatePicker 1.0 components/DateAndTime/CalendarDatePicker.qml
