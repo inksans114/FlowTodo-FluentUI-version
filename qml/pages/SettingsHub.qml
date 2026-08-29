@@ -25,6 +25,7 @@ FluentPage {
                 {title: "应用外观", detail: "明暗模式、窗口材质和纯色主题", icon: "ic_fluent_paint_brush_20_regular", page: "AppAppearanceSettings.qml"},
                 {title: "灵动岛", detail: "主题、透明度、缩放和显示位置", icon: "ic_fluent_timer_20_regular", page: "IslandSettings.qml"},
                 {title: "桌面小组件", detail: "透明度、窗口层级、锁定和尺寸", icon: "ic_fluent_apps_list_detail_20_regular", page: "WidgetSettings.qml"},
+                {title: "桌面便签", detail: "纸片、折叠胶囊和边缘叠放", icon: "ic_fluent_note_20_regular", page: "NoteSettings.qml"},
                 {title: "AI 服务", detail: "OpenAI 兼容接口、模型、密钥和生成参数", icon: "ic_fluent_cloud_20_regular", page: "AiSettings.qml"},
                 {title: "应用与数据", detail: "默认专注时长、开机启动和数据目录", icon: "ic_fluent_settings_20_regular", page: "AppSettings.qml"},
                 {title: "应用拦截", detail: "选择专注期间仍允许使用的 Windows 应用", icon: "ic_fluent_shield_checkmark_20_regular", page: "FocusGuardApps.qml"}
@@ -67,4 +68,3 @@ FluentPage {
         }
     }
 }
-

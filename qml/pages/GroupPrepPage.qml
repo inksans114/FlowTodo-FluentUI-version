@@ -11,7 +11,7 @@ FluentPage {
     property int groupId: -1
     property var group: ({})
     property bool includeBreaks: true
-    property int breakMinutes: 5
+    property int breakMinutes: Number(Backend.getSetting("breakDuration", 5))
     property bool shieldEnabled: false
     property bool whiteNoiseEnabled: false
     property bool docsReady: true

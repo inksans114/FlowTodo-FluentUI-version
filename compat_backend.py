@@ -13,8 +13,10 @@ from datetime import datetime
 
 from PySide6.QtCore import Property, Signal, Slot
 from PySide6.QtGui import QGuiApplication
+from PySide6.QtWidgets import QApplication, QFileDialog
 
 from main import BackendBridge
+from notes import NoteManager
 
 
 class RinUIBackend(BackendBridge):
@@ -36,9 +38,12 @@ class RinUIBackend(BackendBridge):
     navigationContextChanged = Signal()
     desktopWidgetVisibilityRequested = Signal(bool)
     focusPreparationRequested = Signal(str, float)
+    notesChanged = Signal()
+    noteVisibilityChanged = Signal()
 
     def __init__(self):
         super().__init__()
+        self.note_manager = NoteManager(self)
         self.native_window = None
         self._last_focus_payload = "{}"
         self._active_group_id = -1
@@ -53,9 +58,23 @@ class RinUIBackend(BackendBridge):
         self.signalAiMessage.connect(lambda _payload: self.aiStateChanged.emit())
         self.signalAiPlanReady.connect(self._on_ai_plan_ready)
         self.signalPathSelected.connect(lambda _path: self.settingsChanged.emit())
+        self.signalTaskReminder.connect(
+            lambda kind, _title, message: self.messageRequested.emit(
+                "warning",
+                "日程提醒" if kind == "scheduled" else "每日重复任务提醒",
+                message,
+            )
+        )
+        self.note_manager.notesChanged.connect(self.notesChanged.emit)
+        self.note_manager.visibilityChanged.connect(self.noteVisibilityChanged.emit)
+        self.settingsChanged.connect(self.note_manager.refresh_settings)
 
     def attach_native_window(self, window) -> None:
         self.native_window = window
+
+    def attach_qml_engine(self, engine) -> None:
+        self.note_manager.attach_engine(engine)
+        self.note_manager.restore_visible_notes()
 
     def _on_focus_session_payload(self, payload: str) -> None:
         self._last_focus_payload = payload or "{}"
@@ -99,7 +118,11 @@ class RinUIBackend(BackendBridge):
         if "shieldEnabled" in result and "disableOtherApps" not in result:
             result["disableOtherApps"] = bool(result.get("shieldEnabled"))
         if result.get("disableOtherApps") and "guardWhitelist" not in result:
-            result["guardWhitelist"] = self.settings_database.get("focusGuardWhitelist", [])
+            result["guardWhitelist"] = (
+                self.settings_database["focusGuardWhitelist"]
+                if "focusGuardWhitelist" in self.settings_database
+                else self._default_focus_guard_apps()
+            )
         return result
 
     @Property(str, notify=tasksChanged)
@@ -117,6 +140,14 @@ class RinUIBackend(BackendBridge):
     @Property(str, notify=settingsChanged)
     def settingsJson(self) -> str:
         return self.get_settings_json()
+
+    @Property(str, notify=notesChanged)
+    def notesJson(self) -> str:
+        return self.note_manager.notesJson
+
+    @Property(int, notify=notesChanged)
+    def noteCount(self) -> int:
+        return self.note_manager.count
 
     @Property(str, notify=statsChanged)
     def statsJson(self) -> str:
@@ -148,7 +179,11 @@ class RinUIBackend(BackendBridge):
 
     @Property(int, notify=tasksChanged)
     def completedCount(self) -> int:
-        return sum(1 for task in self.local_database if task.get("done"))
+        today = self._today_key()
+        return sum(
+            1 for task in self.local_database
+            if task.get("done") and str(task.get("scheduledDate") or task.get("dailyDate") or "") == today
+        )
 
     @Property(int, notify=statsChanged)
     def todayFocusMinutes(self) -> int:
@@ -202,9 +237,57 @@ class RinUIBackend(BackendBridge):
         self.aiStateChanged.emit()
         self.longPlanChanged.emit()
 
+    @Slot(result=str)
+    def listNotes(self) -> str:
+        return self.note_manager.listNotes()
+
+    @Slot(result=str)
+    def createNote(self) -> str:
+        return self.note_manager.createNote()
+
+    @Slot(str)
+    def showNote(self, note_id: str) -> None:
+        self.note_manager.showNote(note_id)
+
+    @Slot(str)
+    def hideNote(self, note_id: str) -> None:
+        self.note_manager.hideNote(note_id)
+
+    @Slot(str)
+    def toggleNoteCollapse(self, note_id: str) -> None:
+        self.note_manager.toggleCollapse(note_id)
+
+    @Slot(str)
+    def deleteNote(self, note_id: str) -> None:
+        self.note_manager.deleteNote(note_id)
+
+    @Slot(str)
+    def openNote(self, note_id: str) -> None:
+        self.note_manager.openNote(note_id)
+
+    @Slot(str, bool)
+    def setNoteAlwaysOnTop(self, note_id: str, enabled: bool) -> None:
+        self.note_manager.setAlwaysOnTop(note_id, enabled)
+
+    @Slot(str, str)
+    def setNoteCapsuleSide(self, note_id: str, side: str) -> None:
+        self.note_manager.setCapsuleSide(note_id, side)
+
+    @Slot()
+    def showNotes(self) -> None:
+        self.note_manager.showNotes()
+
+    @Slot()
+    def hideNotes(self) -> None:
+        self.note_manager.hideNotes()
+
     @Slot(str, str)
     def addTask(self, title: str, meta: str = "") -> None:
         self.add_task(title, meta)
+
+    @Slot(str, str, str)
+    def addDailyTask(self, title: str, meta: str, reminder_time: str) -> None:
+        self.add_daily_task(title, meta, reminder_time)
 
     @Slot(float, bool)
     def toggleTask(self, task_id: float, done: bool) -> None:
@@ -262,12 +345,75 @@ class RinUIBackend(BackendBridge):
     def chooseDataDirectory(self) -> None:
         self.open_directory_dialog()
 
+    @Slot(result=str)
+    def chooseExecutable(self) -> str:
+        """Open a native picker for an application launched by a task flow."""
+        path, _ = QFileDialog.getOpenFileName(
+            QApplication.activeWindow(),
+            "选择要自动打开的软件",
+            "",
+            "应用程序 (*.exe *.lnk *.bat *.cmd);;所有文件 (*.*)",
+        )
+        return path or ""
+
     def save_settings(self, settings_json):
         super().save_settings(settings_json)
         self.settingsChanged.emit()
 
+    @Slot(str, str, str, str)
+    def addScheduledTask(self, title: str, meta: str, scheduled_date: str, scheduled_time: str = "") -> None:
+        """Create a task and attach a lightweight calendar date/time to it."""
+        task_id = self.add_task(title, meta, "normal", "")
+        if task_id is None:
+            return
+        for task in self.local_database:
+            if int(task.get("id", -1)) == int(task_id):
+                task["scheduledDate"] = str(scheduled_date or self._today_key())
+                task["scheduledTime"] = self._normalize_reminder_time(scheduled_time)
+                break
+        self._save_json(self.tasks_file, self.local_database)
+        self.signalTasksUpdated.emit(json.dumps(self.local_database, ensure_ascii=False))
+
+    @Slot(float, str, str)
+    def setTaskSchedule(self, task_id: float, scheduled_date: str, scheduled_time: str = "") -> None:
+        """Move an existing task to a day in the native calendar."""
+        for task in self.local_database:
+            if int(task.get("id", -1)) == int(task_id):
+                task["scheduledDate"] = str(scheduled_date or self._today_key())
+                task["scheduledTime"] = self._normalize_reminder_time(scheduled_time)
+                break
+        self._save_json(self.tasks_file, self.local_database)
+        self.signalTasksUpdated.emit(json.dumps(self.local_database, ensure_ascii=False))
+
+    @Slot(float, result=bool)
+    def startQuickFocus(self, minutes: float = 25) -> bool:
+        return self._start_quick_focus(minutes, False)
+
+    def _start_quick_focus(self, minutes: float, shield_enabled: bool) -> bool:
+        """Start a focus session without binding it to a task."""
+        payload = {
+            "title": "自由专注",
+            "subtitle": "不绑定任务 · 专注当下",
+            "minutes": max(1, int(minutes or self.settings_database.get("focusDuration", 25))),
+            "options": self._focus_options({"disableOtherApps": bool(shield_enabled)}),
+        }
+        try:
+            ok = bool(self.start_single_task(self._json(payload)))
+        except Exception as error:
+            ok = False
+            self.messageRequested.emit("error", "无法启动专注", str(error))
+        self.focusStartResult.emit(ok, "" if ok else "灵动岛启动失败")
+        return ok
+
+    @Slot(float, result=bool)
+    def startQuickFocusWithGuard(self, minutes: float = 25) -> bool:
+        return self._start_quick_focus(minutes, True)
+
     @Slot(float, result=bool)
     def startTask(self, task_id: float) -> bool:
+        return self._start_task(task_id, False)
+
+    def _start_task(self, task_id: float, shield_enabled: bool) -> bool:
         task = next((item for item in self.local_database if int(item.get("id", -1)) == int(task_id)), None)
         if not task:
             self.focusStartResult.emit(False, "任务不存在")
@@ -277,6 +423,7 @@ class RinUIBackend(BackendBridge):
             "title": task.get("title", "任务专注"),
             "subtitle": task.get("meta", "单任务专注"),
             "minutes": self.settings_database.get("focusDuration", 25),
+            "options": self._focus_options({"disableOtherApps": bool(shield_enabled)}),
         }
         try:
             ok = bool(self.start_single_task(self._json(payload)))
@@ -285,6 +432,10 @@ class RinUIBackend(BackendBridge):
             self.messageRequested.emit("error", "无法启动专注", str(error))
         self.focusStartResult.emit(ok, "" if ok else "灵动岛启动失败")
         return ok
+
+    @Slot(float, result=bool)
+    def startTaskWithGuard(self, task_id: float) -> bool:
+        return self._start_task(task_id, True)
 
     @Slot(float, float, result=bool)
     def startPreparedTask(self, task_id: float, minutes: float) -> bool:
@@ -425,6 +576,41 @@ class RinUIBackend(BackendBridge):
     def clearAiMessages(self) -> None:
         self.clear_ai_messages()
         self.aiStateChanged.emit()
+
+    @Slot(result=str)
+    def clearAllUserData(self) -> str:
+        """Reset application data and notes, then notify all QML consumers."""
+        result = self.clear_all_user_data()
+        try:
+            payload = json.loads(result)
+        except (TypeError, ValueError):
+            payload = {"ok": False, "error": "清理结果无效"}
+
+        if not payload.get("ok"):
+            self.messageRequested.emit(
+                "error",
+                "清除失败",
+                str(payload.get("error") or "无法清除本地数据"),
+            )
+            return result
+
+        try:
+            self.note_manager.clear_all()
+        except Exception as error:
+            message = f"核心数据已清除，但便签清理失败：{error}"
+            self.messageRequested.emit("error", "清除未完成", message)
+            return json.dumps({"ok": False, "error": message}, ensure_ascii=False)
+
+        self.settingsChanged.emit()
+        self.longPlanChanged.emit()
+        self.aiStateChanged.emit()
+        self.desktopWidgetVisibilityRequested.emit(False)
+        self.messageRequested.emit(
+            "success",
+            "数据已清除",
+            "数据已清除，应用设置已恢复默认。",
+        )
+        return result
 
     @Slot()
     def showDesktopWidget(self) -> None:

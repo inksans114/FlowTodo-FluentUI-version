@@ -40,3 +40,7 @@ RinUI/config/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ===== promo-site 依赖与构建产物 =====
+promo-site/node_modules/
+promo-site/dist/

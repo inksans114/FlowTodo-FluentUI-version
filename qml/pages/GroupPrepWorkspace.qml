@@ -12,7 +12,7 @@ FluentPage {
     property double groupId: Backend.activeGroupId
     property var group: ({})
     property bool includeBreaks: true
-    property int breakMinutes: 5
+    property int breakMinutes: Number(Backend.getSetting("breakDuration", 5))
     property bool shieldEnabled: false
     property bool whiteNoiseEnabled: false
     property bool pageReady: false
@@ -53,6 +53,20 @@ FluentPage {
                 text: String(page.group.description || "确认执行队列后开始专注。")
                 typography: Typography.Caption
                 color: Theme.currentTheme.colors.textSecondaryColor }
+    Text { Layout.fillWidth: true
+                visible: ((page.group.launchApps || page.group.applications || []).length || 0) > 0
+                text: {
+                    var apps = page.group.launchApps || page.group.applications || []
+                    var names = []
+                    for (var i = 0; i < apps.length; i++) {
+                        var value = typeof apps[i] === "string" ? apps[i] : (apps[i].path || "")
+                        if (String(value).length) names.push(String(value).split("/").pop().split("\\").pop())
+                    }
+                    return "启动时自动打开：" + names.join("、")
+                }
+                typography: Typography.Caption
+                color: Theme.currentTheme.colors.primaryColor
+                elide: Text.ElideMiddle }
     Text { text: "执行队列"
                 typography: Typography.BodyStrong }
     ColumnLayout { Layout.fillWidth: true

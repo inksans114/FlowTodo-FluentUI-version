@@ -11,10 +11,27 @@ FluentPage {
     contentSpacing: 12
     property var tasks: []
     property var session: ({})
+    property int quickMinutes: Number(Backend.getSetting("focusDuration", 25))
+    property bool shieldEnabled: false
     function nav() { var item = page; while (item) { if (item.objectName === "MainNavigationView") return item; item = item.parent } return null }
-    function reloadTasks() { try { tasks = JSON.parse(Backend.tasksJson).filter(function(item) { return !item.done }) } catch (error) { tasks = [] } }
+    function todayKey() { var now = new Date(); return now.getFullYear() + "-" + (now.getMonth() + 1 < 10 ? "0" : "") + (now.getMonth() + 1) + "-" + (now.getDate() < 10 ? "0" : "") + now.getDate() }
+    function reloadTasks() {
+        var today = page.todayKey()
+        try {
+            tasks = JSON.parse(Backend.tasksJson).filter(function(item) {
+                return !item.done && String(item.scheduledDate || item.dailyDate || "") === today
+            })
+        } catch (error) { tasks = [] }
+    }
     function reloadSession() { try { session = JSON.parse(Backend.focusSessionJson) } catch (error) { session = {} } }
-    function begin(task) { if (Backend.startTask(Number(task.id))) { var router = nav(); if (router) router.push(Qt.resolvedUrl("FocusSessionNative.qml"), {mode: "single", titleText: String(task.title || "专注会话")}) } }
+    function begin(task) {
+        var started = page.shieldEnabled ? Backend.startTaskWithGuard(Number(task.id)) : Backend.startTask(Number(task.id))
+        if (started) { var router = nav(); if (router) router.push(Qt.resolvedUrl("FocusSessionNative.qml"), {mode: "single", titleText: String(task.title || "专注会话")}) }
+    }
+    function beginQuick() {
+        var started = page.shieldEnabled ? Backend.startQuickFocusWithGuard(page.quickMinutes) : Backend.startQuickFocus(page.quickMinutes)
+        if (started) { var router = nav(); if (router) router.push(Qt.resolvedUrl("FocusSessionNative.qml"), {mode: "single", titleText: "自由专注"}) }
+    }
     Component.onCompleted: { reloadTasks(); reloadSession() }
     Connections {
         target: Backend
@@ -24,7 +41,7 @@ FluentPage {
 
     RowLayout { Layout.fillWidth: true
         Text { Layout.fillWidth: true
-                text: "选择待办后，桌面灵动岛会自动展开并同步倒计时"
+                text: "选择待办，或不绑定任务直接开始。灵动岛会同步倒计时"
                 typography: Typography.Body
                 color: Theme.currentTheme.colors.textSecondaryColor }
         Button { visible: Boolean(page.session.event) && page.session.event !== "completed" && page.session.event !== "cancelled"
@@ -56,6 +73,36 @@ FluentPage {
             Text { text: page.tasks.length + " 个待办可开始"
                 typography: Typography.Caption
                 color: Theme.currentTheme.colors.textSecondaryColor }
+            SpinBox {
+                from: 5
+                to: 180
+                stepSize: 5
+                value: page.quickMinutes
+                onValueModified: page.quickMinutes = value
+            }
+            Text { text: "分钟"; typography: Typography.Caption; color: Theme.currentTheme.colors.textSecondaryColor }
+            Button { text: "直接开始"; highlighted: true; icon.name: "ic_fluent_play_20_regular"; onClicked: page.beginQuick() }
+        }
+    }
+    Frame {
+        Layout.fillWidth: true
+        Layout.preferredHeight: 68
+        leftPadding: 16
+        rightPadding: 16
+        topPadding: 10
+        bottomPadding: 10
+        RowLayout {
+            anchors.fill: parent
+            spacing: 12
+            Icon { name: "ic_fluent_shield_checkmark_20_regular"; size: 24; color: page.shieldEnabled ? Theme.currentTheme.colors.primaryColor : Theme.currentTheme.colors.textSecondaryColor }
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 1
+                Text { text: "拦截模式"; typography: Typography.BodyStrong }
+                Text { text: page.shieldEnabled ? "切换到非允许应用时提醒回到专注" : "专注期间检测你是否离开当前窗口"; typography: Typography.Caption; color: Theme.currentTheme.colors.textSecondaryColor }
+            }
+            Button { flat: true; text: "允许的应用"; icon.name: "ic_fluent_shield_checkmark_20_regular"; onClicked: { var router = page.nav(); if (router) router.push(Qt.resolvedUrl("FocusGuardApps.qml"), {returnLabel: "返回专注模式"}) } }
+            Switch { checked: page.shieldEnabled; onClicked: page.shieldEnabled = checked }
         }
     }
     Text { Layout.topMargin: 4

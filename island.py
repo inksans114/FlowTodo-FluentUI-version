@@ -8,7 +8,12 @@ import ctypes
 import ctypes.wintypes
 from urllib.parse import unquote, urlparse
 
-from playsound import playsound
+try:
+    from playsound import playsound
+except ImportError:
+    def playsound(*_args, **_kwargs):
+        """Optional audio fallback for packaged builds without playsound."""
+        return None
 from PySide6.QtCore import QMetaObject, QPoint, QTimer, Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QCursor
 from PySide6.QtQuick import QQuickView

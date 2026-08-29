@@ -15,7 +15,9 @@ QtWindow.Window {
     maximumHeight: 900
     color: "transparent"
     transientParent: null
-    flags: Qt.Window | Qt.FramelessWindowHint
+    // Tool windows stay out of the Windows taskbar and Alt+Tab list while
+    // remaining independent, movable desktop widgets.
+    flags: Qt.Window | Qt.Tool | Qt.FramelessWindowHint
         | (windowLayer === "top" ? Qt.WindowStaysOnTopHint : 0)
         | (windowLayer === "bottom" ? Qt.WindowStaysOnBottomHint : 0)
 
@@ -274,13 +276,23 @@ QtWindow.Window {
                                 Layout.fillWidth: true
                                 text: widget.itemTitle(modelData)
                                 typography: Typography.BodyStrong
+                                color: Boolean(modelData.done) ? Theme.currentTheme.colors.textColor
+                                    : modelData.dailyStatus === "important" ? "#d13438"
+                                    : modelData.dailyStatus === "warning" ? "#c58b00"
+                                    : Theme.currentTheme.colors.textColor
                                 wrapMode: Text.Wrap
                             }
                             Text {
                                 Layout.fillWidth: true
-                                text: widget.itemSubtitle(modelData)
+                                text: modelData.taskType === "daily"
+                                    ? (modelData.dailyStatus === "important" ? "昨日未完成 · 需要优先处理"
+                                        : modelData.dailyStatus === "warning" ? "已到提醒时间 · " + String(modelData.reminderTime || "")
+                                        : "每日重复 · 每天 0:00 重置 · 提醒 " + String(modelData.reminderTime || ""))
+                                    : widget.itemSubtitle(modelData)
                                 typography: Typography.Caption
-                                color: Theme.currentTheme.colors.textSecondaryColor
+                                color: modelData.dailyStatus === "important" ? "#d13438"
+                                    : modelData.dailyStatus === "warning" ? "#c58b00"
+                                    : Theme.currentTheme.colors.textSecondaryColor
                                 wrapMode: Text.Wrap
                             }
                         }

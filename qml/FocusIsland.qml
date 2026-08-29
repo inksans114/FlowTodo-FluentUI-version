@@ -340,8 +340,8 @@ Rectangle {
     SequentialAnimation {
         id: entrance
         ParallelAnimation {
-            NumberAnimation { target: root; property: "entranceOpacity"; to: 1; duration: 280; easing.type: Easing.OutCubic }
-            NumberAnimation { target: root; property: "entranceScale"; to: 1; duration: 430; easing.type: Easing.OutBack }
+            NumberAnimation { target: root; property: "entranceOpacity"; to: 1; duration: 300; easing.type: Easing.OutCubic }
+            NumberAnimation { target: root; property: "entranceScale"; to: 1; duration: 420; easing.type: Easing.OutBack }
         }
     }
     SequentialAnimation {
@@ -358,10 +358,10 @@ Rectangle {
     }
     SequentialAnimation {
         id: exitAnimation
-        PauseAnimation { duration: 1100 }
+        PauseAnimation { duration: 1200 }
         ParallelAnimation {
-            NumberAnimation { target: root; property: "entranceOpacity"; to: 0; duration: 210; easing.type: Easing.InQuad }
-            NumberAnimation { target: root; property: "entranceScale"; to: 0.9; duration: 240; easing.type: Easing.InQuad }
+            NumberAnimation { target: root; property: "entranceOpacity"; to: 0; duration: 220; easing.type: Easing.InQuad }
+            NumberAnimation { target: root; property: "entranceScale"; to: 0.9; duration: 250; easing.type: Easing.InQuad }
         }
         ScriptAction { script: root.exitFinished() }
     }

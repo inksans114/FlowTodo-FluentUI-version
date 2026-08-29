@@ -16,6 +16,7 @@ DEFAULT_SETTINGS = {
     "focusDuration": 25,
     "autoNext": False,
     "autoStart": False,
+    "closeBehavior": "tray",
     "bgMode": "daily",
     "nativeUiTheme": "material",
     "nativeBackdrop": "none",

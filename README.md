@@ -1,3 +1,14 @@
+---
+AIGC:
+    Label: "1"
+    ContentProducer: 001191440300708461136T1XGW3
+    ProduceID: 7a557332ced48940093194afddd3d613_d098d7a59ad311f1a98a525400f8a581
+    ReservedCode1: 98oF40U1+qdK9/vTChLpNukOm0/YeIUfDOgqPVQQgS70S0n03M0e0GwE5JrlrqtZGcoMrQxR3B0nTf6cY7bmXcFdbOF0+MEwHvfwK823NJ/zkJoSAgs15hqz2fgVMQYqZs0Xq+EwjOwbOHRoMx5rGSyo9A3Os1jnHfFq23iPxkBnmoaUSuksPzwx4T0=
+    ContentPropagator: 001191440300708461136T1XGW3
+    PropagateID: 7a557332ced48940093194afddd3d613_d098d7a59ad311f1a98a525400f8a581
+    ReservedCode2: 98oF40U1+qdK9/vTChLpNukOm0/YeIUfDOgqPVQQgS70S0n03M0e0GwE5JrlrqtZGcoMrQxR3B0nTf6cY7bmXcFdbOF0+MEwHvfwK823NJ/zkJoSAgs15hqz2fgVMQYqZs0Xq+EwjOwbOHRoMx5rGSyo9A3Os1jnHfFq23iPxkBnmoaUSuksPzwx4T0=
+---
+
 # FlowTodo RinUI
 
 FlowTodo 的 PySide6 + QML 原生迁移版本。主窗口不再依赖 WebEngine，界面基于
@@ -7,10 +18,10 @@ FlowTodo 的 PySide6 + QML 原生迁移版本。主窗口不再依赖 WebEngine�
 
 ## 功能
 
-- 今日任务、任务流、项目、专注模式
+- 今日任务、周任务日程、任务流、项目、专注模式
 - 任务流 / 项目编辑器
 - 任务流启动准备、项目启动准备、专注进行页
-- AI 规划、长期计划预览、账户统计、每日启动页
+- AI 规划、长期计划预览、账户统计、方块专注历史、每日启动页
 - RinUI / Class Widgets 主题、系统明暗模式、窗口材质
 - AI 接口配置、开机启动、数据目录设置、灵动岛
 
@@ -62,3 +73,4 @@ FlowTodo_RinUI/
 - 第三方组件：
   - RinUI：MIT License，见 `vendor/LICENSE`（Copyright (c) 2025 RinLit）。
   - Class Widgets 2 设计参考：MIT License，见 `CLASS_WIDGETS_2_LICENSE.txt`。
+*（内容由AI生成，仅供参考）*

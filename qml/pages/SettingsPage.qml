@@ -34,6 +34,7 @@ FluentPage {
         selectedUiTheme = String(Backend.getSetting("nativeUiTheme", "material"))
         selectedIslandTheme = String(Backend.getSetting("islandTheme", "material"))
         focusDuration.value = Number(Backend.getSetting("focusDuration", 25))
+        breakDuration.value = Number(Backend.getSetting("breakDuration", 5))
         autoNext.checked = Boolean(Backend.getSetting("autoNext", false))
         autoStart.checked = Boolean(Backend.getSetting("autoStart", false))
         aiBaseUrl.text = String(Backend.getSetting("aiBaseUrl", "https://api.openai.com/v1"))
@@ -168,6 +169,25 @@ FluentPage {
         Switch {
             id: autoNext
             onClicked: if (!page.loading) Backend.setSetting("autoNext", checked)
+        }
+    }
+
+    SettingCard {
+        Layout.fillWidth: true
+        title: "默认休息时长"
+        description: "任务流阶段之间使用的默认休息时间"
+        icon.name: "ic_fluent_weather_moon_20_regular"
+        RowLayout {
+            Layout.preferredWidth: 280
+            Slider {
+                id: breakDuration
+                Layout.fillWidth: true
+                from: 1
+                to: 60
+                stepSize: 1
+                onPressedChanged: if (!pressed && !page.loading) Backend.setSetting("breakDuration", Math.round(value))
+            }
+            Text { Layout.preferredWidth: 64; horizontalAlignment: Text.AlignRight; text: Math.round(breakDuration.value) + " 分钟"; typography: Typography.Caption }
         }
     }
 

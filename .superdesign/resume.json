@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "account-calendar": {
+      "targetKind": "existing-ui",
+      "projectId": "3196da30-73f9-4693-8a3a-7493211b7fcd",
+      "activeDraftId": "012698a4-44d1-4897-a6bf-e7a36f59cc74",
+      "designSystemPath": ".superdesign/design-system.md",
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        ".superdesign/init/theme.md",
+        ".superdesign/init/layouts.md",
+        "qml/pages/AccountOverview.qml",
+        "qml/components/MetricCard.qml"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "8f077d096311dd99b644e35a2fec5c2aa5fe5e0781aac7ecbfa0e36051e9bb2f",
+        ".superdesign/init/theme.md": "be8b28d647a5982507a2b259801b4347bd754e2eb9733ecb66ab8f359575a663",
+        ".superdesign/init/layouts.md": "134b069ea8ddb5a4d24334accfe18ad59f2e71e280c1417c8792d0dccc9580ea",
+        "qml/pages/AccountOverview.qml": "4b47307bac44b5e6d621d43239e497dcf836f4e170a436edee892b4137da73ed",
+        "qml/components/MetricCard.qml": "22c717ffd34f2fb03e21653ac523bf548a60aed490dc87193e6c030038a4650a"
+      },
+      "drafts": {
+        "012698a4-44d1-4897-a6bf-e7a36f59cc74": {
+          "title": "账户统计与方块日历",
+          "visualDirection": "calm WinUI / Codex-like square activity calendar"
+        }
+      },
+      "updatedAt": "2026-08-28T20:20:00+08:00"
+    },
+    "oobe-welcome": {
+      "targetKind": "new-ui",
+      "projectId": "3196da30-73f9-4693-8a3a-7493211b7fcd",
+      "activeDraftId": "55a20313-b001-4228-9f65-eaa46a2dde4e",
+      "designSystemPath": ".superdesign/design-system.md",
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        ".superdesign/init/theme.md",
+        ".superdesign/init/layouts.md",
+        "qml/Main.qml",
+        "qml/pages/HomeDashboard.qml",
+        "qml/pages/FocusWorkspace.qml",
+        "qml/pages/ScheduleWorkspace.qml",
+        "qml/components/MetricCard.qml"
+      ],
+      "referenceIds": [
+        "10195530-0ece-4a9a-b266-eb959e6b7f9a"
+      ],
+      "contentAssets": [
+        {
+          "key": "assets/oobe-flowtodo-hero.png",
+          "path": "assets/oobe-flowtodo-hero.png",
+          "nodeId": "10195530-0ece-4a9a-b266-eb959e6b7f9a",
+          "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/projects/3196da30-73f9-4693-8a3a-7493211b7fcd/content-assets/assets-oobe-flowtodo-hero.png/oobe-flowtodo-hero.png",
+          "purpose": "content"
+        }
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "8f077d096311dd99b644e35a2fec5c2aa5fe5e0781aac7ecbfa0e36051e9bb2f",
+        ".superdesign/init/theme.md": "be8b28d647a5982507a2b259801b4347bd754e2eb9733ecb66ab8f359575a663",
+        ".superdesign/init/layouts.md": "134b069ea8ddb5a4d24334accfe18ad59e2f71e280c1417c8792d0dccc9580ea",
+        "qml/Main.qml": "bff8e92e16202b5812fb47018396d8c100bf6423f9e86ca3c172041a5c63ebc7",
+        "qml/pages/HomeDashboard.qml": "1e41d3ff3db90d03cddf17ba83584b60c3bc132bbf87237507947f50287093f7",
+        "qml/pages/FocusWorkspace.qml": "c8df1cba09c1a61f0bf9fd1b4a8545768629267b50f2cbd1d6e7ed20ff7a1078",
+        "qml/pages/ScheduleWorkspace.qml": "5297fd45c85df7adfe3c62cdef551aa6c1b46b4b806946a65d6d034299e8123c",
+        "qml/components/MetricCard.qml": "22c717ffd34f2fb03e21653ac523bf548a60aed490dc87193e6c030038a4650a"
+      },
+      "drafts": {
+        "55a20313-b001-4228-9f65-eaa46a2dde4e": {
+          "title": "FlowTodo 原生首次启动欢迎页",
+          "visualDirection": "calm WinUI / RinUI OOBE with sparse two-column welcome and transparent productivity illustration",
+          "currentVersion": 2
+        }
+      },
+      "updatedAt": "2026-08-28T20:30:00+08:00"
+    }
+  }
+}

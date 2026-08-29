@@ -30,7 +30,10 @@ FluentPage {
     function submitTask() {
         var value = newTaskTitle.text.trim()
         if (!value.length) return
-        Backend.addTask(value, newTaskMeta.text.trim())
+        if (taskType.currentIndex === 1)
+            Backend.addDailyTask(value, newTaskMeta.text.trim(), dailyReminder.time || "18:00")
+        else
+            Backend.addTask(value, newTaskMeta.text.trim())
         newTaskTitle.clear()
         newTaskMeta.clear()
         newTaskTitle.forceActiveFocus()
@@ -71,9 +74,12 @@ FluentPage {
         description: Backend.todayLabel
         icon.name: "ic_fluent_add_circle_20_regular"
 
-        RowLayout {
-            Layout.preferredWidth: 540
+        ColumnLayout {
+            Layout.fillWidth: true
             spacing: 8
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
             TextField {
                 id: newTaskTitle
                 Layout.fillWidth: true
@@ -91,6 +97,35 @@ FluentPage {
                 highlighted: true
                 icon.name: "ic_fluent_add_20_regular"
                 onClicked: page.submitTask()
+            }
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                ComboBox {
+                    id: taskType
+                    Layout.preferredWidth: 190
+                    model: ["普通任务", "每日重复任务"]
+                    onActivated: function(index) {
+                        if (index === 1 && !dailyReminder.time) Qt.callLater(function() { dailyReminder.setTime("18:00") })
+                    }
+                }
+                Text {
+                    text: taskType.currentIndex === 1 ? "每天 0:00 自动重置，可设置未完成提醒" : "一次性任务，完成后保留记录"
+                    typography: Typography.Caption
+                    color: Theme.currentTheme.colors.textSecondaryColor
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
+                }
+                Text { visible: taskType.currentIndex === 1; text: "提醒时间"; typography: Typography.Caption }
+                TimePicker {
+                    id: dailyReminder
+                    visible: taskType.currentIndex === 1
+                    Layout.preferredWidth: 130
+                    use24Hour: true
+                    hourText: "时"
+                    minuteText: "分"
+                }
             }
         }
     }
@@ -130,7 +165,7 @@ FluentPage {
                 id: taskCard
                 required property var modelData
                 Layout.fillWidth: true
-                Layout.preferredHeight: 78
+                Layout.preferredHeight: taskCard.modelData.taskType === "daily" ? 94 : 78
                 leftPadding: 16
                 rightPadding: 12
                 topPadding: 10
@@ -151,7 +186,10 @@ FluentPage {
                             Layout.fillWidth: true
                             text: String(taskCard.modelData.title || "未命名任务")
                             typography: Typography.BodyStrong
-                            color: Theme.currentTheme.colors.textColor
+                            color: Boolean(taskCard.modelData.done) ? Theme.currentTheme.colors.textColor
+                                : taskCard.modelData.dailyStatus === "important" ? "#d13438"
+                                : taskCard.modelData.dailyStatus === "warning" ? "#c58b00"
+                                : Theme.currentTheme.colors.textColor
                             font.strikeout: Boolean(taskCard.modelData.done)
                             opacity: taskCard.modelData.done ? 0.62 : 1
                             elide: Text.ElideRight
@@ -162,6 +200,16 @@ FluentPage {
                             typography: Typography.Caption
                             color: Theme.currentTheme.colors.textSecondaryColor
                             elide: Text.ElideRight
+                        }
+                        Text {
+                            visible: taskCard.modelData.taskType === "daily"
+                            text: taskCard.modelData.dailyStatus === "important" ? "昨日未完成 · 需要优先处理"
+                                : taskCard.modelData.dailyStatus === "warning" ? "已到提醒时间 · " + String(taskCard.modelData.reminderTime || "")
+                                : "每日重复 · 每天 0:00 重置 · 提醒 " + String(taskCard.modelData.reminderTime || "")
+                            typography: Typography.Caption
+                            color: taskCard.modelData.dailyStatus === "important" ? "#d13438"
+                                : taskCard.modelData.dailyStatus === "warning" ? "#c58b00"
+                                : Theme.currentTheme.colors.textSecondaryColor
                         }
                     }
                     Button {

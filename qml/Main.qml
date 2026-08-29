@@ -21,6 +21,11 @@ FluentWindow {
             icon: "ic_fluent_checkmark_circle_20_regular"
         },
         {
+            title: "日程",
+            page: Qt.resolvedUrl("pages/ScheduleWorkspace.qml"),
+            icon: "ic_fluent_calendar_ltr_20_regular"
+        },
+        {
             title: "任务流",
             page: Qt.resolvedUrl("pages/GroupsWorkspace.qml"),
             icon: "ic_fluent_flow_20_regular"
@@ -49,6 +54,12 @@ FluentWindow {
             title: "桌面小组件",
             page: Qt.resolvedUrl("pages/WidgetHub.qml"),
             icon: "ic_fluent_apps_list_detail_20_regular",
+            position: Position.Bottom
+        },
+        {
+            title: "桌面便签",
+            page: Qt.resolvedUrl("pages/NoteHub.qml"),
+            icon: "ic_fluent_note_20_regular",
             position: Position.Bottom
         },
         {
@@ -113,7 +124,9 @@ FluentWindow {
 
     Connections {
         target: Backend
-        function onSettingsChanged() { window.applySavedAppearance() }
+        function onSettingsChanged() {
+            window.applySavedAppearance()
+        }
         function onDesktopWidgetVisibilityRequested(show) {
             if (show)
                 desktopWidget.showWidget()

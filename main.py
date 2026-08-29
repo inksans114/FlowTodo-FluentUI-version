@@ -473,6 +473,8 @@ class BackendBridge(QObject):
     signalWindowStateChanged = Signal(bool)
     signalFocusSessionChanged = Signal(str)
     signalAppActivated = Signal()
+    signalDailyTaskReminder = Signal(str, str)
+    signalTaskReminder = Signal(str, str, str)
     
     def __init__(self):
         super().__init__()
@@ -522,6 +524,11 @@ class BackendBridge(QObject):
         self._focus_guard_timer.setInterval(1200)
         self._focus_guard_timer.timeout.connect(self._check_focus_guard)
         self.desktop_widgets_window = None
+        self._daily_task_timer = QTimer(self)
+        self._daily_task_timer.setInterval(30 * 1000)
+        self._daily_task_timer.timeout.connect(self._process_daily_tasks)
+        self._daily_task_timer.start()
+        self._process_daily_tasks()
         
         print(f"[Python] 数据初始化完成 | 任务: {len(self.local_database)} | 流程: {len(self.groups_database)} | 项目: {len(self.projects_database)}")
 
@@ -530,6 +537,145 @@ class BackendBridge(QObject):
 
     def _get_default_tasks(self):
         return [{"id": 101, "title": "检查 Python 端连通性", "meta": "系统内置测试数据", "done": False}]
+
+    @staticmethod
+    def _today_key():
+        return datetime.now().strftime("%Y-%m-%d")
+
+    @staticmethod
+    def _normalize_reminder_time(value):
+        text = str(value or "").strip()
+        try:
+            hour, minute = (int(item) for item in text.split(":", 1))
+            if 0 <= hour <= 23 and 0 <= minute <= 59:
+                return f"{hour:02d}:{minute:02d}"
+        except (TypeError, ValueError):
+            pass
+        return ""
+
+    def _cleanup_completed_tasks(self, today):
+        """删除已经跨过日期边界的一次性已完成任务。
+
+        每日任务是可重复记录，不能按这个规则删除。旧数据如果没有完成时间，
+        则以排期日期作为保守判断；没有任何日期信息的旧任务从本次启动开始计时，
+        给用户一天时间迁移或查看。
+        """
+        retained = []
+        changed = False
+        history_changed = False
+        task_history = self.stats_database.setdefault("taskHistory", [])
+        history_keys = {
+            (str(item.get("id", "")), str(item.get("completedAt", "")))
+            for item in task_history
+            if isinstance(item, dict)
+        }
+        for task in self.local_database:
+            if task.get("taskType") == "daily" or not task.get("done"):
+                retained.append(task)
+                continue
+
+            completed_at = str(task.get("completedAt") or "")
+            completed_date = completed_at[:10]
+            if completed_date and completed_date < today:
+                history_key = (str(task.get("id", "")), completed_at)
+                if history_key not in history_keys:
+                    archived = dict(task)
+                    archived["historyDate"] = completed_date
+                    task_history.append(archived)
+                    history_keys.add(history_key)
+                    history_changed = True
+                changed = True
+                continue
+
+            if not completed_date:
+                scheduled_date = str(task.get("scheduledDate") or "")[:10]
+                if scheduled_date and scheduled_date < today:
+                    history_key = (str(task.get("id", "")), "")
+                    if history_key not in history_keys:
+                        archived = dict(task)
+                        archived["historyDate"] = scheduled_date
+                        task_history.append(archived)
+                        history_keys.add(history_key)
+                        history_changed = True
+                    changed = True
+                    continue
+                task["completedAt"] = datetime.now().isoformat(timespec="seconds")
+                changed = True
+            retained.append(task)
+
+        if changed:
+            self.local_database = retained
+        if len(task_history) > 2000:
+            del task_history[:-2000]
+            history_changed = True
+        if history_changed:
+            self._save_json(self.stats_file, self.stats_database)
+        return changed
+
+    def _process_daily_tasks(self):
+        """处理每日任务、排期提醒和跨日清理。"""
+        today = self._today_key()
+        now_text = datetime.now().strftime("%H:%M")
+        changed = self._cleanup_completed_tasks(today)
+        for task in self.local_database:
+            if task.get("taskType") != "daily":
+                continue
+            task_date = str(task.get("dailyDate") or "")
+            if task_date != today:
+                # Finish the day rollover first. A completed occurrence starts
+                # normally; an unfinished occurrence carries a red overdue
+                # state into the new day. Do not run today's reminder check in
+                # this same pass, otherwise a rollover at a late hour would
+                # immediately turn the new occurrence yellow.
+                was_unfinished = bool(task_date) and not bool(task.get("done"))
+                task["done"] = False
+                task["dailyDate"] = today
+                task["scheduledDate"] = today
+                task["completedAt"] = ""
+                task["dailyStatus"] = "important" if was_unfinished else "normal"
+                task["reminderNotifiedDate"] = ""
+                changed = True
+                continue
+            reminder = self._normalize_reminder_time(task.get("reminderTime"))
+            # An overdue task from yesterday stays red. Yellow is reserved for
+            # today's reminder deadline, not for a carried-over task.
+            if reminder and not task.get("done") and task.get("dailyStatus") != "important" and reminder <= now_text:
+                if task.get("dailyStatus") != "warning":
+                    task["dailyStatus"] = "warning"
+                    changed = True
+                if task.get("reminderNotifiedDate") != today:
+                    task["reminderNotifiedDate"] = today
+                    changed = True
+                    self.signalDailyTaskReminder.emit(
+                        str(task.get("title") or "未命名任务"),
+                        f"已到提醒时间（{reminder}），这个每日重复任务还没有完成。",
+                    )
+                    self.signalTaskReminder.emit(
+                        "daily",
+                        str(task.get("title") or "未命名任务"),
+                        f"已到提醒时间（{reminder}），这个每日重复任务还没有完成。",
+                    )
+
+        for task in self.local_database:
+            if task.get("taskType") == "daily" or task.get("done"):
+                continue
+            if str(task.get("scheduledDate") or "") != today:
+                continue
+            reminder = self._normalize_reminder_time(task.get("scheduledTime"))
+            if not reminder or reminder > now_text:
+                continue
+            if task.get("reminderNotifiedDate") == today:
+                continue
+            task["reminderNotifiedDate"] = today
+            changed = True
+            self.signalTaskReminder.emit(
+                "scheduled",
+                str(task.get("title") or "未命名任务"),
+                f"已到排期时间（{reminder}），现在开始处理这项任务吧。",
+            )
+        if changed:
+            self._save_json(self.tasks_file, self.local_database)
+            self.signalTasksUpdated.emit(json.dumps(self.local_database, ensure_ascii=False))
 
     def _get_default_groups(self):
         return [{"id": 1001, "name": "晨间启动流程", "description": "每天早晨的高效启动", "steps": [{"name": "回顾任务", "duration": 5}, {"name": "深度工作", "duration": 25}], "theme": "primary"}]
@@ -544,6 +690,7 @@ class BackendBridge(QObject):
         return {
             "theme": "auto",
             "focusDuration": 25,
+            "breakDuration": 5,
             "autoNext": False,
             "dataPath": self.data_dir,
             "dailyWallpaperSource": "bing",
@@ -562,6 +709,7 @@ class BackendBridge(QObject):
             "aiAutoApply": True,
             "aiReplaceOnApply": True,
             "autoStart": False,
+            "closeBehavior": "tray",
             "islandTheme": "material",
             "nativeAccent": "#0f6cbd",
             "islandScale": 1.0,
@@ -577,6 +725,16 @@ class BackendBridge(QObject):
             "desktopWidgetLocked": False,
             "desktopWidgetWidth": 400,
             "desktopWidgetHeight": 570,
+            "notesEnabled": True,
+            "notesAutoShow": False,
+            "notesDefaultWidth": 320,
+            "notesDefaultHeight": 360,
+            "notesAlwaysOnTop": False,
+            "notesOpacity": 0.96,
+            "notesEdgeDock": True,
+            "notesCapsuleGap": 6,
+            "notesCapsuleSide": "right",
+            "notesRememberPosition": True,
         }
 
     def _today(self):
@@ -593,7 +751,9 @@ class BackendBridge(QObject):
             "completedTimerSessions": 0,
             "todayDate": self._today(),
             "lastFocusAt": None,
-            "dailyFocusSeconds": {}
+            "dailyFocusSeconds": {},
+            "focusSessions": [],
+            "taskHistory": []
         }
 
     def _get_default_long_plan(self):
@@ -1003,6 +1163,10 @@ class BackendBridge(QObject):
         if not isinstance(self.stats_database.get("dailyFocusSeconds"), dict):
             self.stats_database["dailyFocusSeconds"] = {}
             changed = True
+        for key in ("focusSessions", "taskHistory"):
+            if not isinstance(self.stats_database.get(key), list):
+                self.stats_database[key] = []
+                changed = True
 
         today = self._today()
         if self.stats_database.get("todayDate") != today:
@@ -1031,9 +1195,14 @@ class BackendBridge(QObject):
             return default
 
     def _task_stats(self):
-        """计算任务统计：总数、已完成、未完成、完成率."""
-        total = len(self.local_database)
-        done = sum(1 for task in self.local_database if task.get("done"))
+        """计算任务统计：当前任务与历史归档共同计入累计口径."""
+        history = [
+            task for task in (self.stats_database.get("taskHistory") or [])
+            if isinstance(task, dict)
+        ]
+        all_tasks = list(self.local_database) + history
+        total = len(all_tasks)
+        done = sum(1 for task in all_tasks if task.get("done"))
         pending = max(0, total - done)
         rate = round((done / total) * 100) if total else 0
         return {"total": total, "done": done, "pending": pending, "completionRate": rate}
@@ -1073,7 +1242,10 @@ class BackendBridge(QObject):
         total_focus_seconds = self._safe_int(self.stats_database.get("totalFocusSeconds"), 0)
         today_focus_seconds = self._safe_int(self.stats_database.get("todayFocusSeconds"), 0)
         return {
-            "tasks": task_stats,
+            "tasks": {
+                **task_stats,
+                "history": list(self.stats_database.get("taskHistory") or [])
+            },
             "groups": {"total": len(self.groups_database)},
             "projects": project_stats,
             "focus": {
@@ -1086,7 +1258,9 @@ class BackendBridge(QObject):
                 "completedGroupSessions": self._safe_int(self.stats_database.get("completedGroupSessions"), 0),
                 "completedProjectSessions": self._safe_int(self.stats_database.get("completedProjectSessions"), 0),
                 "completedTimerSessions": self._safe_int(self.stats_database.get("completedTimerSessions"), 0),
-                "lastFocusAt": self.stats_database.get("lastFocusAt")
+                "lastFocusAt": self.stats_database.get("lastFocusAt"),
+                "dailyFocusSeconds": dict(self.stats_database.get("dailyFocusSeconds") or {}),
+                "sessions": list(self.stats_database.get("focusSessions") or [])
             }
         }
 
@@ -1183,11 +1357,12 @@ class BackendBridge(QObject):
         self.signalStatsUpdated.emit(json.dumps(self._build_stats(), ensure_ascii=False))
         self.signalAchievementsUpdated.emit(json.dumps(self._build_achievements(), ensure_ascii=False))
 
-    def _record_focus_session(self, seconds, mode="timer"):
-        """记录一次专注会话：更新总/今日时长和次数,写入 dailyFocusSeconds."""
+    def _record_focus_session(self, seconds, mode="timer", session=None):
+        """记录专注汇总，并保存可供历史日期查看的会话明细。"""
         seconds = max(0, self._safe_int(seconds, 0))
         if seconds <= 0:
             return
+        session = session if isinstance(session, dict) else {}
         self._normalize_stats()
         self.stats_database["totalFocusSeconds"] = self._safe_int(self.stats_database.get("totalFocusSeconds"), 0) + seconds
         self.stats_database["todayFocusSeconds"] = self._safe_int(self.stats_database.get("todayFocusSeconds"), 0) + seconds
@@ -1204,6 +1379,22 @@ class BackendBridge(QObject):
         daily = self.stats_database.setdefault("dailyFocusSeconds", {})
         daily[today] = self._safe_int(daily.get(today), 0) + seconds
         self.stats_database["lastFocusAt"] = datetime.now().isoformat(timespec="seconds")
+        focus_session = {
+            "id": f"focus-{int(datetime.now().timestamp() * 1000)}",
+            "date": today,
+            "title": str(session.get("title") or ("自由专注" if mode == "timer" else "专注会话")),
+            "subtitle": str(session.get("subtitle") or ""),
+            "seconds": seconds,
+            "mode": str(mode or "timer"),
+            "completedAt": datetime.now().isoformat(timespec="seconds"),
+        }
+        for key in ("taskId", "groupId", "projectId"):
+            if session.get(key) is not None:
+                focus_session[key] = session.get(key)
+        focus_sessions = self.stats_database.setdefault("focusSessions", [])
+        focus_sessions.append(focus_session)
+        if len(focus_sessions) > 5000:
+            del focus_sessions[:-5000]
         self._save_json(self.stats_file, self.stats_database)
 
     def _long_plan_today_payload(self):
@@ -1292,19 +1483,45 @@ class BackendBridge(QObject):
     def get_tasks_json(self): return json.dumps(self.local_database, ensure_ascii=False)
 
     @Slot(str, str)
-    def add_task(self, title, meta):
+    def add_task(self, title, meta, task_type="normal", reminder_time=""):
         """[Slot] 添加任务：生成 ID,插入列表顶部,保存并发射更新信号."""
-        new_item = {"id": int(1000 + len(self.local_database) + len(self.groups_database)*100), "title": title, "meta": meta or "来自客户端", "done": False}
+        task_type = "daily" if str(task_type).lower() == "daily" else "normal"
+        new_item = {
+            "id": int(1000 + len(self.local_database) + len(self.groups_database)*100),
+            "title": title,
+            "meta": meta or "来自客户端",
+            "done": False,
+            "completedAt": "",
+            "scheduledDate": self._today_key(),
+            "scheduledTime": "",
+        }
+        if task_type == "daily":
+            new_item.update({
+                "taskType": "daily",
+                "reminderTime": self._normalize_reminder_time(reminder_time),
+                "dailyDate": self._today_key(),
+                "dailyStatus": "normal",
+                "reminderNotifiedDate": "",
+            })
         self.local_database.insert(0, new_item)
         self._save_json(self.tasks_file, self.local_database)
         self.signalTasksUpdated.emit(json.dumps(self.local_database, ensure_ascii=False))
         self._emit_stats_and_achievements()
+        return new_item["id"]
+
+    def add_daily_task(self, title, meta, reminder_time):
+        self.add_task(title, meta, "daily", reminder_time)
 
     @Slot(float, bool)
     def toggle_task_status(self, task_id, is_done):
         task_id = int(task_id)
         for task in self.local_database:
-            if task["id"] == task_id: task["done"] = is_done; break
+            if task["id"] == task_id:
+                task["done"] = bool(is_done)
+                task["completedAt"] = datetime.now().isoformat(timespec="seconds") if is_done else ""
+                if task.get("taskType") == "daily" and is_done:
+                    task["dailyStatus"] = "normal"
+                break
         self._save_json(self.tasks_file, self.local_database)
         self.signalTasksUpdated.emit(json.dumps(self.local_database, ensure_ascii=False))
         self._emit_stats_and_achievements()
@@ -2467,6 +2684,43 @@ class BackendBridge(QObject):
             "docsReady": bool(options.get("docsReady")),
         }
 
+    def _group_launch_apps(self, group):
+        """Start the optional applications configured on a task flow."""
+        if not isinstance(group, dict):
+            return []
+        configured = group.get("launchApps")
+        if configured is None:
+            configured = group.get("applications", [])
+        if not isinstance(configured, list):
+            configured = [configured] if configured else []
+
+        failures = []
+        for item in configured:
+            raw_path = item.get("path") if isinstance(item, dict) else item
+            path = os.path.expandvars(os.path.expanduser(str(raw_path or "").strip().strip('"')))
+            if not path:
+                continue
+            if not os.path.isabs(path):
+                path = os.path.abspath(path)
+            if not os.path.isfile(path):
+                failures.append(f"{os.path.basename(path) or path}（文件不存在）")
+                continue
+            try:
+                if sys.platform == "win32":
+                    os.startfile(path)
+                else:
+                    subprocess.Popen([path], start_new_session=True)
+            except Exception as error:
+                print(f"[Python] 自动打开软件失败: {path}: {error}")
+                failures.append(f"{os.path.basename(path) or path}（启动失败）")
+
+        if failures:
+            summary = "、".join(failures[:3])
+            if len(failures) > 3:
+                summary += f" 等 {len(failures)} 个"
+            send_windows_notification("FlowTodo", f"任务流已开始，但部分软件未能打开：{summary}", duration=4)
+        return failures
+
     def _island_focus_options(self, options):
         """处理专注选项中的灵动岛专用字段：白噪音 Data URL → 本地文件路径."""
         options = dict(options or {})
@@ -2542,7 +2796,11 @@ class BackendBridge(QObject):
         """完成专注会话：记录时长、更新项目进度、恢复环境、显示主窗口."""
         session = self.active_focus_session or {}
         completed_seconds = session.get("focusSeconds") or state.get("totalSeconds") or session.get("totalSeconds") or state.get("completedSeconds") or 0
-        self._record_focus_session(completed_seconds, session.get("mode") or state.get("mode") or "timer")
+        self._record_focus_session(
+            completed_seconds,
+            session.get("mode") or state.get("mode") or "timer",
+            session,
+        )
         if session.get("mode") == "project":
             self._apply_project_focus_progress(session)
         self._emit_stats_and_achievements()
@@ -2591,7 +2849,7 @@ class BackendBridge(QObject):
 
     @Slot(float)
     def record_local_focus_session(self, seconds):
-        self._record_focus_session(seconds, "timer")
+        self._record_focus_session(seconds, "timer", {"title": "自由专注", "subtitle": "未绑定任务"})
         self._emit_stats_and_achievements()
 
     def _positive_int(self, value, default, minimum=1):
@@ -2614,6 +2872,7 @@ class BackendBridge(QObject):
         subtitle = str(payload.get("subtitle") or "单任务专注").strip() or "单任务专注"
         minutes = self._positive_int(payload.get("minutes", 25), 25, minimum=1)
         task_id = payload.get("taskId")
+        options = payload.get("options") if isinstance(payload.get("options"), dict) else {}
         island_tasks = [{
             "title": title,
             "subtitle": subtitle,
@@ -2628,9 +2887,10 @@ class BackendBridge(QObject):
             "totalSeconds": minutes * 60,
             "focusSeconds": minutes * 60,
             "totalTasks": 1,
+            "options": self._public_focus_options(options),
         }
         try:
-            self._launch_island(island_tasks, mode="single", session=session)
+            self._launch_island(island_tasks, mode="single", session=session, options=options)
         except Exception as e:
             print(f'[Python] Failed to launch single task island: {e}')
             return False
@@ -2677,6 +2937,9 @@ class BackendBridge(QObject):
 
         if not island_tasks:
             return False
+
+        group = next((item for item in self.groups_database if item.get('id') == group_id), None)
+        self._group_launch_apps(group)
 
         try:
             session = {
