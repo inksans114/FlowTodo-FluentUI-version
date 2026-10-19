@@ -2,10 +2,11 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
+import "../i18n"
 
 FluentPage {
     id: page
-    title: "每日启动预备"
+    title: I18n.t("每日启动预备")
     wrapperWidth: 760
     horizontalPadding: 34
     property var welcome: ({})
@@ -14,12 +15,12 @@ FluentPage {
     SettingCard {
         Layout.fillWidth: true
         title: Backend.todayLabel
-        description: welcome.need_welcome ? "新的一天，从一次清晰的准备开始" : "今日准备已经完成，也可以随时重新查看"
+        description: welcome.need_welcome ? I18n.t("新的一天，从一次清晰的准备开始") : I18n.t("今日准备已经完成，也可以随时重新查看")
         icon.name: "ic_fluent_weather_sunny_20_regular"
         ColumnLayout {
             Layout.fillWidth: true
-            Text { text: "今日任务、任务流和项目都已同步"; typography: Typography.Body }
-            Button { text: "进入今日任务"; highlighted: true; icon.name: "ic_fluent_checkmark_circle_20_regular"; onClicked: { var router = page.nav(); if (router) router.safePop() } }
+            Text { text: I18n.t("今日任务、任务流和项目都已同步"); typography: Typography.Body }
+            Button { text: I18n.t("进入今日任务"); highlighted: true; icon.name: "ic_fluent_checkmark_circle_20_regular"; onClicked: { var router = page.nav(); if (router) router.safePop() } }
         }
     }
 }

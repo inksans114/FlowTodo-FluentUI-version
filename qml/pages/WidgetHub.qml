@@ -2,13 +2,14 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
+import "../i18n"
 
 FluentPage {
     id: page
-    title: "桌面小组件"
-    wrapperWidth: 860
-    horizontalPadding: 36
-    contentSpacing: 14
+    title: I18n.t("桌面小组件")
+    wrapperWidth: 960
+    horizontalPadding: 32
+    contentSpacing: 18
 
     property var tasks: []
     property var groups: []
@@ -36,12 +37,12 @@ FluentPage {
         Layout.fillWidth: true
         Text {
             Layout.fillWidth: true
-            text: "任务、任务流和项目"
+            text: I18n.t("任务、任务流和项目")
             typography: Typography.Body
             color: Theme.currentTheme.colors.textSecondaryColor
         }
         Button {
-            text: "打开小组件"
+            text: I18n.t("打开小组件")
             highlighted: true
             icon.name: "ic_fluent_open_20_regular"
             onClicked: Backend.showDesktopWidget()
@@ -59,9 +60,9 @@ FluentPage {
             spacing: 22
             Repeater {
                 model: [
-                    { label: "待办任务", value: page.tasks.filter(function(item) { return !item.done }).length, icon: "ic_fluent_task_list_ltr_20_regular" },
-                    { label: "任务流", value: page.groups.length, icon: "ic_fluent_flow_20_regular" },
-                    { label: "项目", value: page.projects.length, icon: "ic_fluent_board_20_regular" }
+                    { label: I18n.t("待办任务"), value: page.tasks.filter(function(item) { return !item.done }).length, icon: "ic_fluent_task_list_ltr_20_regular" },
+                    { label: I18n.t("任务流"), value: page.groups.length, icon: "ic_fluent_flow_20_regular" },
+                    { label: I18n.t("项目"), value: page.projects.length, icon: "ic_fluent_board_20_regular" }
                 ]
                 delegate: RowLayout {
                     Layout.fillWidth: true
@@ -90,7 +91,7 @@ FluentPage {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: 0
-                Text { text: "随应用启动"; typography: Typography.BodyStrong }
+                Text { text: I18n.t("随应用启动"); typography: Typography.BodyStrong }
             }
             Switch {
                 id: autoShow
@@ -102,7 +103,7 @@ FluentPage {
     RowLayout {
         Layout.fillWidth: true
         Item { Layout.fillWidth: true }
-        Button { text: "刷新数据"; icon.name: "ic_fluent_arrow_sync_20_regular"; onClicked: Backend.reload() }
-        Button { text: "隐藏小组件"; icon.name: "ic_fluent_dismiss_20_regular"; onClicked: Backend.hideDesktopWidget() }
+        Button { text: I18n.t("刷新数据"); icon.name: "ic_fluent_arrow_sync_20_regular"; onClicked: Backend.reload() }
+        Button { text: I18n.t("隐藏小组件"); icon.name: "ic_fluent_dismiss_20_regular"; onClicked: Backend.hideDesktopWidget() }
     }
 }

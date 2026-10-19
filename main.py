@@ -24,6 +24,7 @@ import sys
 import os
 os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--disable-smooth-scrolling --disable-threaded-scrolling")
 import json
+from ai_service_settings import public_settings
 import re
 import copy
 import socket
@@ -75,6 +76,9 @@ if QWebEngineView is None:
     class QWebChannel:
         pass
 
+from i18n_runtime import tr
+from task_archive import archive_expired, referenced_task_ids
+from startup_manager import StartupShortcut, resolve_launch, startup_directory
 from island import DynamicIslandBridge, send_windows_notification
 
 
@@ -478,9 +482,8 @@ class BackendBridge(QObject):
     
     def __init__(self):
         super().__init__()
-        app_data_root = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-        # 数据目录：%LOCALAPPDATA%/FlowTodo/data/
-        self.data_dir = os.path.join(app_data_root, "FlowTodo", "data")
+        from app_paths import user_data_dir
+        self.data_dir = str(user_data_dir())
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir)
         
@@ -506,6 +509,10 @@ class BackendBridge(QObject):
         self.achievements_database = self._load_json(self.achievements_file, {})
         self.long_plan_database = self._load_json(self.long_plan_file, self._get_default_long_plan())
         self.ai_state_database = self._load_json(self.ai_state_file, self._get_default_ai_state())
+        self._ai_state_lock = threading.RLock()
+        from ai_library import migrate
+        if migrate(self.ai_state_database, self.ai_plans_dir):
+            self._save_ai_state()
         self._normalize_settings()
         self._normalize_stats()
         self.island_windows = {}
@@ -617,6 +624,11 @@ class BackendBridge(QObject):
         today = self._today_key()
         now_text = datetime.now().strftime("%H:%M")
         changed = self._cleanup_completed_tasks(today)
+        protected = referenced_task_ids([self.groups_database, self.projects_database, self.long_plan_database])
+        if self.active_focus_session and self.active_focus_session.get("taskId") is not None:
+            protected.add(str(self.active_focus_session["taskId"]))
+        changed = archive_expired(self.local_database, self.settings_database.get("taskAutoArchiveDays", 0),
+                                  protected_ids=protected) or changed
         for task in self.local_database:
             if task.get("taskType") != "daily":
                 continue
@@ -646,18 +658,17 @@ class BackendBridge(QObject):
                 if task.get("reminderNotifiedDate") != today:
                     task["reminderNotifiedDate"] = today
                     changed = True
-                    self.signalDailyTaskReminder.emit(
-                        str(task.get("title") or "未命名任务"),
-                        f"已到提醒时间（{reminder}），这个每日重复任务还没有完成。",
+                    reminder_title = str(task.get("title") or tr("未命名任务"))
+                    reminder_body = (
+                        tr("已到提醒时间（")
+                        + reminder
+                        + tr("），这个每日重复任务还没有完成。")
                     )
-                    self.signalTaskReminder.emit(
-                        "daily",
-                        str(task.get("title") or "未命名任务"),
-                        f"已到提醒时间（{reminder}），这个每日重复任务还没有完成。",
-                    )
+                    self.signalDailyTaskReminder.emit(reminder_title, reminder_body)
+                    self.signalTaskReminder.emit("daily", reminder_title, reminder_body)
 
         for task in self.local_database:
-            if task.get("taskType") == "daily" or task.get("done"):
+            if task.get("archivedAt") or task.get("taskType") == "daily" or task.get("done"):
                 continue
             if str(task.get("scheduledDate") or "") != today:
                 continue
@@ -670,12 +681,15 @@ class BackendBridge(QObject):
             changed = True
             self.signalTaskReminder.emit(
                 "scheduled",
-                str(task.get("title") or "未命名任务"),
-                f"已到排期时间（{reminder}），现在开始处理这项任务吧。",
+                str(task.get("title") or tr("未命名任务")),
+                tr("已到排期时间（")
+                + reminder
+                + tr("），现在开始处理这项任务吧。"),
             )
         if changed:
             self._save_json(self.tasks_file, self.local_database)
-            self.signalTasksUpdated.emit(json.dumps(self.local_database, ensure_ascii=False))
+            self.signalTasksUpdated.emit(self.get_tasks_json())
+            self._emit_stats_and_achievements()
 
     def _get_default_groups(self):
         return [{"id": 1001, "name": "晨间启动流程", "description": "每天早晨的高效启动", "steps": [{"name": "回顾任务", "duration": 5}, {"name": "深度工作", "duration": 25}], "theme": "primary"}]
@@ -689,8 +703,13 @@ class BackendBridge(QObject):
     def _get_default_settings(self):
         return {
             "theme": "auto",
+            "language": "",
             "focusDuration": 25,
             "breakDuration": 5,
+            "taskAutoArchiveDays": 0,
+            "notificationSoundEnabled": True,
+            "notificationSoundPath": "",
+            "notificationSoundVolume": 0.8,
             "autoNext": False,
             "dataPath": self.data_dir,
             "dailyWallpaperSource": "bing",
@@ -771,6 +790,7 @@ class BackendBridge(QObject):
             "latestPlan": None,
             "latestPath": "",
             "messages": [],
+            "savedPlans": [],
             "updatedAt": None
         }
 
@@ -805,7 +825,7 @@ class BackendBridge(QObject):
 
     def _emit_data_updates(self):
         """向前端发射任务、流程、项目、统计、成就的全部更新信号."""
-        self.signalTasksUpdated.emit(json.dumps(self.local_database, ensure_ascii=False))
+        self.signalTasksUpdated.emit(self.get_tasks_json())
         self.signalGroupsUpdated.emit(json.dumps(self.groups_database, ensure_ascii=False))
         self.signalProjectsUpdated.emit(json.dumps(self.projects_database, ensure_ascii=False))
         self._emit_stats_and_achievements()
@@ -819,7 +839,8 @@ class BackendBridge(QObject):
         return re.sub(r"\s+", "", str(value or "").strip().lower())
 
     def _task_key(self, task):
-        return self._fingerprint(task.get("title"))
+        title=self._fingerprint(task.get("title"))
+        return (title,str(task.get('scheduledDate') or ''),str(task.get('scheduledTime') or '')) if title else None
 
     def _group_key(self, group):
         steps = "|".join(self._fingerprint(step.get("name") or step.get("title")) for step in group.get("steps", []))
@@ -843,19 +864,30 @@ class BackendBridge(QObject):
             "projects": [],
             "longPlan": None
         }
+        if "guidance" in plan or "questions" in plan:
+            from guided_focus import validate_guidance, validate_questions
+            normalized["guidance"] = validate_guidance(plan.get("guidance"))
+            normalized["questions"] = validate_questions(plan.get("questions", []))
 
+        seen_task_titles = set()
         for index, task in enumerate(plan.get("tasks") or []):
             if not isinstance(task, dict):
                 continue
             title = str(task.get("title") or "").strip()
-            if not title:
+            if not title or self._fingerprint(title) in seen_task_titles:
                 continue
+            seen_task_titles.add(self._fingerprint(title))
             normalized["tasks"].append({
                 "id": self._new_id(index),
                 "title": title,
                 "meta": str(task.get("meta") or task.get("description") or "AI 规划任务"),
-                "done": bool(task.get("done", False))
+                "done": False,
+                "scheduledDate": str(task.get("scheduledDate") or ""),
+                "scheduledTime": str(task.get("scheduledTime") or ""),
+                "createdAt": datetime.now().isoformat(timespec="seconds")
             })
+            if task.get("durationMinutes") is not None:
+                normalized["tasks"][-1]["durationMinutes"] = min(180, self._positive_int(task.get("durationMinutes"), 5, minimum=1))
 
         for group_index, group in enumerate(plan.get("groups") or []):
             if not isinstance(group, dict):
@@ -976,11 +1008,13 @@ class BackendBridge(QObject):
                 return json.loads(candidate)
             except json.JSONDecodeError:
                 continue
-        raise ValueError("没有找到可解析的 JSON 计划")
+        from ai_planning import AIResponseParseError
+        raise AIResponseParseError("没有找到可解析的 JSON 计划")
 
     def _save_ai_plan(self, plan):
         """将 AI 计划保存到 ai_plans 目录,文件名带时间戳."""
-        filename = f"ai-plan-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
+        from uuid import uuid4
+        filename = f"ai-plan-{datetime.now().strftime('%Y%m%d-%H%M%S-%f')}-{uuid4().hex[:8]}.json"
         path = os.path.join(self.ai_plans_dir, filename)
         self._save_json(path, plan)
         return path
@@ -1040,22 +1074,24 @@ class BackendBridge(QObject):
         }
 
     def _save_ai_state(self, latest_plan=None, latest_path=None, messages=None):
-        if latest_plan is not None:
-            self.ai_state_database["latestPlan"] = latest_plan
-        if latest_path is not None:
-            self.ai_state_database["latestPath"] = latest_path
-        if messages is not None:
-            clean_messages = []
-            for item in messages[-40:]:
-                if not isinstance(item, dict):
-                    continue
-                role = item.get("role")
-                content = str(item.get("content") or "").strip()
-                if role in ("user", "assistant", "system") and content:
-                    clean_messages.append({"role": role, "content": content})
-            self.ai_state_database["messages"] = clean_messages
-        self.ai_state_database["updatedAt"] = datetime.now().isoformat(timespec="seconds")
-        self._save_json(self.ai_state_file, self.ai_state_database)
+        with self._ai_state_lock:
+            if latest_plan is not None:
+                self.ai_state_database["latestPlan"] = latest_plan
+            if latest_path is not None:
+                self.ai_state_database["latestPath"] = latest_path
+            if messages is not None:
+                clean_messages = []
+                for item in messages[-40:]:
+                    if not isinstance(item, dict):
+                        continue
+                    role = item.get("role")
+                    content = str(item.get("content") or "").strip()
+                    if role in ("user", "assistant", "system") and content:
+                        clean_messages.append({"role": role, "content": content})
+                self.ai_state_database["messages"] = clean_messages
+            self.ai_state_database["updatedAt"] = datetime.now().isoformat(timespec="seconds")
+            from ai_library import write_state
+            write_state(self.ai_state_file, self.ai_state_database)
 
     def _apply_ai_plan(self, plan, merge_missing=True, replace_ai=False):
         """将 AI 计划应用到数据库：支持合并缺失项或完全替换 AI 内容."""
@@ -1200,7 +1236,7 @@ class BackendBridge(QObject):
             task for task in (self.stats_database.get("taskHistory") or [])
             if isinstance(task, dict)
         ]
-        all_tasks = list(self.local_database) + history
+        all_tasks = self._visible_tasks() + history
         total = len(all_tasks)
         done = sum(1 for task in all_tasks if task.get("done"))
         pending = max(0, total - done)
@@ -1270,7 +1306,8 @@ class BackendBridge(QObject):
         group_count = stats["groups"]["total"]
         project_stats = stats["projects"]
         focus_stats = stats["focus"]
-        all_tasks_done = task_stats["total"] > 0 and task_stats["done"] == task_stats["total"]
+        all_tasks_done = (task_stats["total"] > 0 and task_stats["done"] == task_stats["total"]
+                          and not any(task.get("archivedAt") and not task.get("done") for task in self.local_database))
         return [
             {
                 "id": "first_task_done",
@@ -1480,14 +1517,40 @@ class BackendBridge(QObject):
         return json.dumps(self._build_achievements(), ensure_ascii=False)
 
     @Slot(result=str)
-    def get_tasks_json(self): return json.dumps(self.local_database, ensure_ascii=False)
+    def get_tasks_json(self): return json.dumps(self._visible_tasks(), ensure_ascii=False)
+
+    def _visible_tasks(self):
+        return [task for task in self.local_database if not task.get("archivedAt")]
+
+    @Slot(result=str)
+    def getArchivedTasks(self):
+        return json.dumps([task for task in self.local_database if task.get("archivedAt")], ensure_ascii=False)
+
+    @Slot(float, result=bool)
+    def restoreArchivedTask(self, task_id):
+        for task in self.local_database:
+            if task.get("id") == int(task_id) and task.get("archivedAt"):
+                task.pop("archivedAt", None)
+                task.pop("archiveReason", None)
+                task["updatedAt"] = datetime.now().isoformat(timespec="seconds")
+                task["scheduledDate"] = self._today_key()
+                task["scheduledTime"] = ""
+                self._save_json(self.tasks_file, self.local_database)
+                self.signalTasksUpdated.emit(self.get_tasks_json())
+                self._emit_stats_and_achievements()
+                return True
+        return False
 
     @Slot(str, str)
     def add_task(self, title, meta, task_type="normal", reminder_time=""):
         """[Slot] 添加任务：生成 ID,插入列表顶部,保存并发射更新信号."""
-        task_type = "daily" if str(task_type).lower() == "daily" else "normal"
+        task_type = str(task_type).lower()
+        if task_type not in {"normal", "daily", "pomodoro"}:
+            task_type = "normal"
         new_item = {
-            "id": int(1000 + len(self.local_database) + len(self.groups_database)*100),
+            "id": max([999] + [int(task.get("id", 0)) for task in self.local_database]
+                      + [int(task.get("id", 0)) for task in self.stats_database.get("taskHistory", [])]) + 1,
+            "createdAt": datetime.now().isoformat(timespec="seconds"),
             "title": title,
             "meta": meta or "来自客户端",
             "done": False,
@@ -1505,9 +1568,21 @@ class BackendBridge(QObject):
             })
         self.local_database.insert(0, new_item)
         self._save_json(self.tasks_file, self.local_database)
-        self.signalTasksUpdated.emit(json.dumps(self.local_database, ensure_ascii=False))
+        self.signalTasksUpdated.emit(self.get_tasks_json())
         self._emit_stats_and_achievements()
         return new_item["id"]
+
+    @Slot(str, str, int)
+    def add_pomodoro_task(self, title, meta, focus_minutes):
+        task_id = self.add_task(title, meta, "pomodoro")
+        for task in self.local_database:
+            if task.get("id") == task_id:
+                task["taskType"] = "pomodoro"
+                task["focusMinutes"] = self._positive_int(focus_minutes, 25, minimum=1)
+                break
+        self._save_json(self.tasks_file, self.local_database)
+        self.signalTasksUpdated.emit(self.get_tasks_json())
+        return task_id
 
     def add_daily_task(self, title, meta, reminder_time):
         self.add_task(title, meta, "daily", reminder_time)
@@ -1523,7 +1598,7 @@ class BackendBridge(QObject):
                     task["dailyStatus"] = "normal"
                 break
         self._save_json(self.tasks_file, self.local_database)
-        self.signalTasksUpdated.emit(json.dumps(self.local_database, ensure_ascii=False))
+        self.signalTasksUpdated.emit(self.get_tasks_json())
         self._emit_stats_and_achievements()
 
     @Slot(float)
@@ -1531,7 +1606,7 @@ class BackendBridge(QObject):
         task_id = int(task_id)
         self.local_database = [t for t in self.local_database if t["id"] != task_id]
         self._save_json(self.tasks_file, self.local_database)
-        self.signalTasksUpdated.emit(json.dumps(self.local_database, ensure_ascii=False))
+        self.signalTasksUpdated.emit(self.get_tasks_json())
         self._emit_stats_and_achievements()
 
     @Slot(result=str)
@@ -1591,36 +1666,16 @@ class BackendBridge(QObject):
         self._emit_stats_and_achievements()
 
     def _startup_entry_path(self):
-        startup_dir = os.path.join(
-            os.environ.get("APPDATA", ""),
-            "Microsoft", "Windows", "Start Menu", "Programs", "Startup"
-        )
-        return os.path.join(startup_dir, "FlowDeck_AutoStart.bat")
+        return str(startup_directory() / "FlowDeck_AutoStart.bat")
 
     def _auto_start_app_name(self):
         return "FlowTodo"
 
-    def _is_packaged_exe(self):
-        exe_name = os.path.basename(sys.executable).lower()
-        return bool(
-            getattr(sys, "frozen", False)
-            or "__compiled__" in globals()
-            or exe_name not in ("python.exe", "pythonw.exe")
-        )
-
-    def _auto_start_command_parts(self):
-        """构建自启动命令行：打包版直接用 exe,开发版用 python + 脚本路径."""
-        if self._is_packaged_exe():
-            return [os.path.abspath(sys.executable)]
-        return [os.path.abspath(sys.executable), os.path.abspath(__file__)]
+    def _auto_start_launch(self):
+        return resolve_launch(os.path.dirname(__file__), compiled=globals().get("__compiled__"))
 
     def _auto_start_command(self):
-        return subprocess.list2cmdline(self._auto_start_command_parts())
-
-    def _auto_start_work_dir(self):
-        if self._is_packaged_exe():
-            return os.path.dirname(os.path.abspath(sys.executable))
-        return os.path.dirname(os.path.abspath(__file__))
+        return self._auto_start_launch().command
 
     def _run_registry_key_path(self):
         return r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -1637,18 +1692,6 @@ class BackendBridge(QObject):
         except OSError:
             return None
 
-    def _set_registry_auto_start_value(self, command):
-        if sys.platform != "win32" or winreg is None:
-            return False
-        with winreg.CreateKeyEx(
-            winreg.HKEY_CURRENT_USER,
-            self._run_registry_key_path(),
-            0,
-            winreg.KEY_SET_VALUE,
-        ) as key:
-            winreg.SetValueEx(key, self._auto_start_app_name(), 0, winreg.REG_SZ, command)
-        return True
-
     def _delete_registry_auto_start_value(self):
         if sys.platform != "win32" or winreg is None:
             return
@@ -1662,8 +1705,6 @@ class BackendBridge(QObject):
                 winreg.DeleteValue(key, self._auto_start_app_name())
         except FileNotFoundError:
             return
-        except OSError:
-            return
 
     def _legacy_startup_entry_matches(self, expected_command):
         entry_path = self._startup_entry_path()
@@ -1676,46 +1717,43 @@ class BackendBridge(QObject):
             return False
         return expected_command.lower() in content.lower()
 
-    def _write_legacy_startup_entry(self, command_parts):
-        entry_path = self._startup_entry_path()
-        if not entry_path or not os.path.dirname(entry_path):
-            raise RuntimeError("无法定位 Windows 启动文件夹")
-        os.makedirs(os.path.dirname(entry_path), exist_ok=True)
-        escaped_parts = [part.replace("%", "%%") for part in command_parts]
-        launch_command = subprocess.list2cmdline(escaped_parts)
-        work_dir = self._auto_start_work_dir().replace("%", "%%")
-        bat = (
-            "@echo off\r\n"
-            f'cd /d "{work_dir}"\r\n'
-            f'start "" {launch_command}\r\n'
-        )
-        with open(entry_path, "w", encoding="utf-8") as f:
-            f.write(bat)
-
     def _delete_legacy_startup_entry(self):
         entry_path = self._startup_entry_path()
         if os.path.exists(entry_path):
             os.remove(entry_path)
 
     def _is_auto_start_enabled(self):
-        """检查开机自启是否已启用(优先检查注册表 Run 键,其次启动文件夹)."""
-        expected_command = self._auto_start_command()
-        registry_value = self._get_registry_auto_start_value()
-        if registry_value is not None:
-            return registry_value.strip().lower() == expected_command.strip().lower()
-        return self._legacy_startup_entry_matches(expected_command)
+        """Use the real native-app shortcut, not the stored checkbox value."""
+        if sys.platform != "win32":
+            return False
+        try:
+            launch = self._auto_start_launch()
+            if StartupShortcut().matches(launch):
+                return True
+            # An old, still correct native registration can be turned off normally.
+            registry_value = self._get_registry_auto_start_value()
+            if registry_value and registry_value.strip().casefold() == launch.command.casefold():
+                return True
+            return self._legacy_startup_entry_matches(launch.command)
+        except Exception:
+            return False
 
     def _set_auto_start_enabled(self, enabled):
-        """设置开机自启：优先写入注册表 Run 键,失败则回退启动文件夹 .bat."""
+        """Create a native-app shortcut; remove our legacy entries to avoid duplicates."""
+        if sys.platform != "win32":
+            if enabled:
+                raise RuntimeError("此版本暂不支持系统登录时自动启动。")
+            self.settings_database["autoStart"] = False
+            return True
+        shortcut = StartupShortcut()
         if enabled:
-            command = self._auto_start_command()
-            if self._set_registry_auto_start_value(command):
-                self._delete_legacy_startup_entry()
-            else:
-                self._write_legacy_startup_entry(self._auto_start_command_parts())
-        else:
-            self._delete_registry_auto_start_value()
-            self._delete_legacy_startup_entry()
+            shortcut.enable(self._auto_start_launch())
+        self._delete_registry_auto_start_value()
+        self._delete_legacy_startup_entry()
+        if not enabled:
+            shortcut.disable()
+        if bool(enabled) != self._is_auto_start_enabled():
+            raise RuntimeError("自启动设置未生效，请检查启动目录权限后重试。")
         self.settings_database["autoStart"] = bool(enabled)
         self._save_json(self.settings_file, self.settings_database)
         return True
@@ -1724,17 +1762,20 @@ class BackendBridge(QObject):
     def get_settings_json(self):
         """[Slot] 获取设置 JSON,同时同步开机自启的实际状态."""
         self.settings_database["autoStart"] = self._is_auto_start_enabled()
-        return json.dumps(self.settings_database, ensure_ascii=False)
+        return json.dumps(public_settings(self.settings_database), ensure_ascii=False)
 
     @Slot(str)
     def save_settings(self, settings_json):
         try:
             settings = json.loads(settings_json)
             if "autoStart" in settings:
-                self._set_auto_start_enabled(bool(settings.get("autoStart")))
+                requested_startup = bool(settings.pop("autoStart"))
+                if requested_startup != bool(self.settings_database.get("autoStart", False)):
+                    self._set_auto_start_enabled(requested_startup)
             self.settings_database.update(settings)
             self._save_json(self.settings_file, self.settings_database)
             self._apply_island_preferences_to_active()
+            self._process_daily_tasks()
         except Exception as e: print(f"[Python] 保存设置失败: {e}")
 
     def _island_preferences(self):
@@ -1763,7 +1804,8 @@ class BackendBridge(QObject):
             self._set_auto_start_enabled(bool(enabled))
             return json.dumps({"ok": True, "enabled": self._is_auto_start_enabled()}, ensure_ascii=False)
         except Exception as e:
-            return json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False)
+            self.settings_database["autoStart"] = self._is_auto_start_enabled()
+            return json.dumps({"ok": False, "enabled": self.settings_database["autoStart"], "error": str(e)}, ensure_ascii=False)
 
     @Slot(result=bool)
     def get_auto_start_enabled(self):
@@ -1804,84 +1846,14 @@ class BackendBridge(QObject):
         except Exception as e:
             return json.dumps({"ok": False, "error": str(e)}, ensure_ascii=False)
 
-    def _ai_system_prompt(self, long_mode=False):
-        """构建 AI 系统提示词,包含 JSON Schema 和约束规则."""
-        base = (
-            "你是 Cheems Todo 的个性化规划助手.语气要清楚、具体、专业,不要夸张抒情,"
-            "不要编造用户没有给出的背景.用户会告诉你目标、需求或近期状态,你要把它转换成"
-            "可以直接导入 Cheems Todo 的每日任务、任务流和项目.\n"
-            "输出必须包含两部分：\n"
-            "1. 先用 3-5 句中文说明：目标判断、时间约束、执行节奏、今天/本周期先做什么.\n"
-            "2. 然后输出且只输出一个 ```json 代码块,JSON 必须是对象,结构如下：\n"
-        )
-        if long_mode:
-            return base + (
-                "{\n"
-                '  "mode": "long",\n'
-                '  "title": "长期计划标题",\n'
-                '  "summary": "整体计划摘要",\n'
-                '  "tasks": [],\n'
-                '  "groups": [{"name": "本周期每日执行任务流", "description": "用途", "steps": [{"name": "步骤名", "duration": 25, "type": "focus"}], "theme": "primary"}],\n'
-                '  "projects": [{"name": "长期项目名", "desc": "项目说明", "progress": 0, "taskCount": 4, "milestones": [{"title": "阶段里程碑", "done": false}]}],\n'
-                '  "longPlan": {\n'
-                '    "goal": "长期目标",\n'
-                '    "durationText": "例如：两个月",\n'
-                '    "cycleLengthDays": 7,\n'
-                '    "totalCycles": 8,\n'
-                '    "roadmap": ["第1周期：打基础", "第2周期：巩固", "后续周期：根据复盘动态调整"],\n'
-                '    "cycles": [{"index": 1, "title": "第1周期", "goal": "本周期目标", "days": [{"day": 1, "dateOffset": 0, "focus": "今日重点", "tasks": [{"title": "每日任务", "meta": "用时/要求/提示"}]}], "reviewPrompt": "本周期复盘问题"}],\n'
-                '    "nextCycleInstruction": "周期结束后根据用户掌握情况生成下一周期."\n'
-                "  }\n"
-                "}\n"
-                "长期计划规则：不要一次性生成完整两个月每日任务；要把长期目标拆为周期,通常 7 天一个周期；"
-                "只生成第一个周期的每日任务,后续周期只写 roadmap 概览；当前周期最多 7 天,每天 2-4 个任务."
-                "每天任务要按先易后难排列,meta 写清用时、完成标准和资料建议."
-                "周期结束需要用户复盘掌握情况后再生成下一周期."
-                "如果用户给了明确时间段,durationText 和 totalCycles 必须匹配.字段名必须使用英文."
-            )
-        return base + (
-            "{\n"
-            '  "title": "计划标题",\n'
-            '  "mode": "short",\n'
-            '  "summary": "计划摘要",\n'
-            '  "tasks": [{"title": "任务名", "meta": "场景/优先级/提醒", "done": false}],\n'
-            '  "groups": [{"name": "任务流名", "description": "用途", "steps": [{"name": "步骤名", "duration": 25, "type": "focus"}], "theme": "primary"}],\n'
-            '  "projects": [{"name": "项目名", "desc": "项目说明", "progress": 0, "taskCount": 3, "milestones": [{"title": "里程碑", "done": false}]}]\n'
-            "}\n"
-            "约束：任务 4-8 个；任务流 1-3 个,每个 3-6 步,每步 duration 为分钟；项目 0-2 个；"
-            "不要输出 JSON 以外的第二个代码块；不要在 JSON 内写注释；字段名必须使用英文."
-        )
+    def _ai_system_prompt(self, long_mode=False, capture=False, capture_phase="intake"):
+        from ai_planning import system_prompt
+        return system_prompt(long_mode, capture, capture_phase)
 
     def _ai_context_message(self):
-        """构建 AI 上下文消息,包含当前待办/项目/长期计划状态."""
-        pending_tasks = [t.get("title", "") for t in self.local_database if not t.get("done")][:8]
-        active_projects = [p.get("name", "") for p in self.projects_database if self._safe_float(p.get("progress"), 0) < 1][:6]
-        context = (
-            "当前软件数据上下文："
-            f"待办任务 {len([t for t in self.local_database if not t.get('done')])} 个,"
-            f"任务流 {len(self.groups_database)} 个,项目 {len(self.projects_database)} 个."
-            f"待办示例：{pending_tasks or ['暂无']}."
-            f"项目示例：{active_projects or ['暂无']}."
-            "请避免生成与现有内容明显重复的条目."
-        )
-        state = self.long_plan_database if isinstance(self.long_plan_database, dict) else {}
-        if state.get("active") and isinstance(state.get("plan"), dict):
-            plan = state["plan"]
-            long_plan = plan.get("longPlan") or {}
-            cycle = None
-            cycles = long_plan.get("cycles") or []
-            cycle_index = self._safe_int(state.get("currentCycleIndex"), 0)
-            if 0 <= cycle_index < len(cycles):
-                cycle = cycles[cycle_index]
-            context += (
-                "当前存在 AI 长期计划："
-                f"目标《{long_plan.get('goal') or plan.get('title', '')}》,"
-                f"周期状态：{'等待复盘' if state.get('pendingReview') else '执行中'}."
-            )
-            if cycle:
-                context += f"当前周期《{cycle.get('title', '')}》,复盘提示：{cycle.get('reviewPrompt', '')}."
-            context += "如果用户正在复盘,请根据掌握情况生成下一个周期的每日任务,并保留长期 roadmap."
-        return context
+        from ai_planning import compact_context
+        preferences = self.settings_database if self.settings_database.get("aiUsePreferences", False) else None
+        return compact_context(self._visible_tasks(), self.projects_database, self.long_plan_database, preferences=preferences)
 
     def _ai_chat_endpoint(self):
         base_url = str(self.settings_database.get("aiBaseUrl") or "").strip().rstrip("/")
@@ -1898,7 +1870,15 @@ class BackendBridge(QObject):
             return 1
         return self._safe_float(self.settings_database.get("aiTemperature"), 0.7)
 
-    def _call_ai_chat(self, messages, long_mode=False):
+    def _retry_ai_chat(self, messages, long_mode=False, failure=None):
+        # Request-local recovery; never rewrite the user's configured budget.
+        from ai_planning import AIOutputLimit
+        budget = None
+        if isinstance(failure, AIOutputLimit) and failure.output_budget > 0:
+            budget = min(2147483647, failure.output_budget * 2)
+        return self._call_ai_chat(messages, long_mode=long_mode, output_limit=budget)
+
+    def _call_ai_chat(self, messages, long_mode=False, output_limit=None):
         """调用 OpenAI 兼容 API 发送对话请求,返回助手回复文本."""
         api_key = str(self.settings_database.get("aiApiKey") or "").strip()
         model = str(self.settings_database.get("aiModel") or "gpt-4o-mini").strip()
@@ -1913,7 +1893,17 @@ class BackendBridge(QObject):
             "messages": messages,
             "temperature": self._ai_request_temperature(model)
         }
+        # Omit max_tokens in automatic mode: the provider chooses its supported
+        # limit. Sending an infinite/huge number would be rejected by the API.
+        budget = output_limit
+        if budget is None:
+            budget = (0 if self.settings_database.get("aiServiceOutputLimit", True)
+                      else self._safe_int(self.settings_database.get("aiLongOutputLimit" if long_mode else "aiShortOutputLimit"), 3600 if long_mode else 1800))
+        budget = max(0, min(2147483647, self._safe_int(budget, 0)))
+        if budget:
+            payload["max_tokens"] = budget
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        usage_service = self.settings_database.get("aiServiceMode", "default")
         req = urllib.request.Request(
             self._ai_chat_endpoint(),
             data=data,
@@ -1930,59 +1920,102 @@ class BackendBridge(QObject):
             raise RuntimeError(f"AI 请求超时：接口在 {timeout} 秒内没有返回.长期计划内容较多,可以稍后重试,或在设置页把 AI 请求超时调高.")
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="ignore")
-            raise RuntimeError(f"AI 请求失败：HTTP {e.code} {body[:300]}")
+            from ai_planning import AIContextLimit
+            if e.code in (400, 413) and any(code in body.lower() for code in ("context_length_exceeded", "maximum context", "context window", "too many tokens")):
+                raise AIContextLimit("服务的上下文长度不足，正在尝试减少背景内容。")
+            if e.code == 400 and ("max_tokens" in body.lower() or "max_completion_tokens" in body.lower()):
+                raise RuntimeError("服务不接受当前输出参数。原话已保留；请在 AI 服务高级参数选择服务默认额度，或关闭默认额度并设置该模型支持的输出预算。")
+            raise RuntimeError(f"AI 服务拒绝了请求（HTTP {e.code}）。请检查密钥、模型、服务额度或稍后重试；原话仍保留。")
         except urllib.error.URLError as e:
             if isinstance(e.reason, socket.timeout):
                 raise RuntimeError(f"AI 请求超时：接口在 {timeout} 秒内没有返回.长期计划内容较多,可以稍后重试,或在设置页把 AI 请求超时调高.")
             raise RuntimeError(f"AI 网络连接失败：{e.reason}")
         try:
-            return result["choices"][0]["message"]["content"]
+            choice = result["choices"][0]
+            if choice.get("finish_reason") == "content_filter":
+                raise RuntimeError("服务拦截了这次回复。原话已保留，没有添加任务；请检查服务提示或更换支持该用途的模型。")
+            content = choice["message"]["content"]
+            if not isinstance(content, str) or not content.strip():
+                raise RuntimeError("AI 返回了空回复，请稍后重试。")
+            record_usage = getattr(self, "_record_ai_usage", None)
+            if record_usage is not None:
+                try:
+                    record_usage(result.get("usage") if isinstance(result, dict) else None, usage_service)
+                except OSError:
+                    pass  # A usage storage failure must not discard the AI reply.
+            if choice.get("finish_reason") == "length":
+                from ai_planning import AIOutputLimit
+                raise AIOutputLimit("AI 输出达到服务单次上限，正在尝试补全。",
+                                    result["choices"][0].get("message", {}).get("content", ""), budget)
+            return content
         except (KeyError, IndexError, TypeError):
             raise RuntimeError("AI 返回格式异常,未找到 message.content")
 
     def _run_ai_plan_request(self, request_json):
         """在后台线程执行 AI 规划请求：校验、调用 API、解析 JSON、应用计划."""
+        guided_request_id = ""
         try:
             payload = json.loads(request_json or "{}")
+            guided_request_id = payload.get("guidedRequestId", "")
+            if guided_request_id and guided_request_id != getattr(self, "_guided_request_id", None):
+                return
             raw_messages = payload.get("messages") or []
             long_mode = bool(payload.get("longMode"))
+            capture = bool(payload.get("captureMode"))
             replace_on_apply = bool(payload.get("replaceOnApply", self.settings_database.get("aiReplaceOnApply", True)))
             active_long_plan = bool(self.long_plan_database.get("active"))
             pending_review = bool(self.long_plan_database.get("pendingReview"))
-            if active_long_plan and (not long_mode or not pending_review):
+            if active_long_plan and not capture and (not long_mode or not pending_review):
                 raise ValueError("当前已有 AI 长期计划.请先放弃当前长期计划；如果是周期复盘,请在周期结束后从开篇页进入 AI 复盘.")
             messages = [
-                {"role": "system", "content": self._ai_system_prompt(long_mode=long_mode)},
+                {"role": "system", "content": self._ai_system_prompt(long_mode=long_mode, capture=capture, capture_phase=payload.get("capturePhase", "intake"))},
                 {"role": "system", "content": self._ai_context_message()}
             ]
-            for item in raw_messages[-10:]:
-                if not isinstance(item, dict):
-                    continue
-                role = item.get("role")
-                content = str(item.get("content") or "").strip()
-                if role in ("user", "assistant") and content:
-                    messages.append({"role": role, "content": content})
+            from ai_planning import bounded_messages, request_plan, compact_capture_input
+            if capture:
+                clean = bounded_messages(raw_messages, limit=20000)
+                latest_user = next((item for item in reversed(clean) if item['role'] == 'user'), None)
+                if latest_user:
+                    messages.append({'role': 'user', 'content': compact_capture_input(self._call_ai_chat, latest_user['content'])})
+            else:
+                messages.extend(bounded_messages(raw_messages))
             if len(messages) <= 2:
                 raise ValueError("请先告诉 AI 你的目标或需求")
 
-            self.signalAiMessage.emit(json.dumps({"role": "assistant", "content": "我先确认目标、时间跨度和每天可投入时间,再拆成任务、任务流和项目结构."}, ensure_ascii=False))
-            self.signalAiMessage.emit(json.dumps({"role": "assistant", "content": "如果是长期目标,我只生成当前周期的每日任务,并保留完整路线图；后续周期根据复盘继续调整."}, ensure_ascii=False))
-            response_text = self._call_ai_chat(messages, long_mode=long_mode)
-            plan = self._normalize_ai_plan(self._extract_json_object(response_text))
+            raw_plan = request_plan(self._call_ai_chat, messages, self._extract_json_object, long_mode, capture,
+                                    retry_call=self._retry_ai_chat, require_progress=capture)
+            if guided_request_id and guided_request_id != getattr(self, "_guided_request_id", None):
+                return
+            plan = self._normalize_ai_plan(raw_plan)
+            if capture:
+                plan["captureMode"] = True
+                plan["capturePhase"] = payload.get("capturePhase", "intake")
+                plan["captureAnswers"] = payload.get("captureAnswers", [])
+                plan["guidedSessionId"] = payload.get("guidedSessionId", "")
+                plan["captureOriginal"] = str(payload.get("captureOriginal", latest_user['content'] if latest_user else ''))
+                plan["captureFacts"] = messages[-1]['content']
+                plan["inputCompacted"] = bool(latest_user and len(latest_user['content']) > 6000)
             if not long_mode and plan.get("mode") == "long":
                 plan["mode"] = "short"
                 plan["longPlan"] = None
+            from ai_library import valid_id, remember
+            if valid_id(payload.get("libraryId")):
+                plan["libraryId"] = payload["libraryId"]
+            else:
+                from uuid import uuid4
+                plan["libraryId"] = uuid4().hex
             saved_path = self._save_ai_plan(plan)
-            auto_apply = bool(self.settings_database.get("aiAutoApply", True)) and plan.get("mode") != "long"
+            auto_apply = not capture and bool(self.settings_database.get("aiAutoApply", True)) and plan.get("mode") != "long"
             if auto_apply:
                 added = self._apply_ai_plan(plan, merge_missing=True, replace_ai=replace_on_apply)
             else:
                 added = {"tasks": 0, "groups": 0, "projects": 0}
-            assistant_text = re.sub(r"```(?:json)?[\s\S]*?```", "", response_text, flags=re.IGNORECASE).strip()
+            assistant_text = str(plan.get("summary") or "").strip()
             if not assistant_text:
                 assistant_text = f"已生成《{plan.get('title', 'AI 个性化计划')}》,并准备好导入."
             result = {
                 "ok": True,
+                "guidedRequestId": guided_request_id,
                 "message": assistant_text,
                 "plan": plan,
                 "path": saved_path,
@@ -1995,14 +2028,22 @@ class BackendBridge(QObject):
                     "projects": len(plan.get("projects") or [])
                 }
             }
-            self.signalAiMessage.emit(json.dumps({"role": "assistant", "content": assistant_text}, ensure_ascii=False))
             persisted_messages = raw_messages + [{"role": "assistant", "content": assistant_text}]
-            self._save_ai_state(latest_plan=plan, latest_path=saved_path, messages=persisted_messages)
+            with self._ai_state_lock:
+                if guided_request_id and guided_request_id != getattr(self, "_guided_request_id", None):
+                    return
+                saved_record = remember(self.ai_state_database, plan, saved_path)
+                if saved_record and plan.get("capturePhase") != "continue":
+                    saved_record["messages"] = copy.deepcopy(persisted_messages)
+                self._save_ai_state(latest_plan=plan, latest_path=saved_path, messages=persisted_messages)
+            self.signalAiMessage.emit(json.dumps({"role": "assistant", "content": assistant_text}, ensure_ascii=False))
             self.signalAiPlanReady.emit(json.dumps(result, ensure_ascii=False))
         except Exception as e:
+            if guided_request_id and guided_request_id != getattr(self, "_guided_request_id", None):
+                return
             message = str(e)
             self.signalAiMessage.emit(json.dumps({"role": "assistant", "content": f"AI 规划失败：{message}"}, ensure_ascii=False))
-            self.signalAiPlanReady.emit(json.dumps({"ok": False, "error": message}, ensure_ascii=False))
+            self.signalAiPlanReady.emit(json.dumps({"ok": False, "error": message, "guidedRequestId": guided_request_id}, ensure_ascii=False))
 
     @Slot(str)
     def request_ai_plan(self, request_json):
@@ -2081,7 +2122,8 @@ class BackendBridge(QObject):
 
     @Slot(result=str)
     def clear_ai_state(self):
-        self.ai_state_database = self._get_default_ai_state()
+        retained = {key: self.ai_state_database[key] for key in ("savedPlans", "savedPlansMigration") if key in self.ai_state_database}
+        self.ai_state_database = dict(self._get_default_ai_state(), **retained)
         self._save_json(self.ai_state_file, self.ai_state_database)
         return json.dumps({"ok": True}, ensure_ascii=False)
 
@@ -2141,7 +2183,7 @@ class BackendBridge(QObject):
                 "projects": self.projects_database,
                 "stats": self._build_stats(),
                 "achievements": self._build_achievements(),
-                "settings": self.settings_database,
+                "settings": public_settings(self.settings_database),
                 "longPlan": self.long_plan_database,
                 "aiState": self.ai_state_database,
                 "removedAiPlans": removed_ai_plans
@@ -2393,6 +2435,18 @@ class BackendBridge(QObject):
     def _normalize_process_value(self, value):
         return str(value or "").strip().strip('"').lower()
 
+    @staticmethod
+    def _focus_guard_process_aliases(value):
+        raw = str(value or "")
+        process = os.path.basename(raw.replace("\\", "/")).lower()
+        office_processes = {
+            "winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe",
+            "onenote.exe", "msaccess.exe", "mspub.exe", "visio.exe",
+        }
+        if process in office_processes or "microsoft office" in raw.lower():
+            return office_processes
+        return {process} if process else set()
+
     def _extract_exe_path(self, value):
         text = str(value or "").strip()
         if not text:
@@ -2539,14 +2593,20 @@ class BackendBridge(QObject):
             if isinstance(app, dict):
                 process = self._normalize_process_value(app.get("process"))
                 path = self._normalize_process_value(app.get("path"))
+                name = self._normalize_process_value(app.get("name"))
             else:
                 process = self._normalize_process_value(app)
                 path = ""
+                name = ""
             if process:
                 values.add(process)
+                values.update(self._focus_guard_process_aliases(process))
             if path:
                 values.add(path)
                 values.add(os.path.basename(path).lower())
+                values.update(self._focus_guard_process_aliases(path))
+            if "microsoft office" in name or "microsoft 365" in name:
+                values.update(self._focus_guard_process_aliases("microsoft office"))
         return values
 
     def _foreground_window_info(self):
@@ -2593,6 +2653,8 @@ class BackendBridge(QObject):
         """护盾检测逻辑：获取前台窗口,判断是否需要发送提醒."""
         if not self._focus_guard_enabled or not self.active_focus_session:
             return
+        if self.island_windows and not any(island.focus_running() for island in self.island_windows.values()):
+            return
         info = self._foreground_window_info()
         if not info:
             return
@@ -2601,7 +2663,12 @@ class BackendBridge(QObject):
             return
         process_key = self._normalize_process_value(process_name)
         path_key = self._normalize_process_value(process_path)
-        if process_key in self._focus_guard_allowed_apps or path_key in self._focus_guard_allowed_apps:
+        process_aliases = self._focus_guard_process_aliases(process_name)
+        if (
+            process_key in self._focus_guard_allowed_apps
+            or path_key in self._focus_guard_allowed_apps
+            or process_aliases.intersection(self._focus_guard_allowed_apps)
+        ):
             return
         now = datetime.now().timestamp()
         if now - self._focus_guard_last_alert_at < 10:
@@ -2662,7 +2729,10 @@ class BackendBridge(QObject):
         """强制关闭所有灵动岛并恢复专注环境(窗口关闭时调用)."""
         for island in list(self.island_windows.values()):
             try:
-                island.cancel_focus()
+                if island._finished:
+                    island.close()
+                else:
+                    island.cancel_focus()
             except RuntimeError:
                 pass
         self._restore_focus_environment()
@@ -2671,6 +2741,7 @@ class BackendBridge(QObject):
         """提取专注选项的公开字段(供前端显示),过滤敏感数据."""
         options = options or {}
         return {
+            "flowConfirm": bool(options.get('flowConfirm')),
             "includeBreaks": bool(options.get("includeBreaks")),
             "breakMinutes": options.get("breakMinutes"),
             "disableOtherApps": bool(options.get("disableOtherApps") or options.get("disableApps")),
@@ -2741,7 +2812,11 @@ class BackendBridge(QObject):
         """启动灵动岛专注会话：关闭旧岛、应用环境、创建 DynamicIslandBridge."""
         for island in list(self.island_windows.values()):
             try:
-                island.cancel_focus()
+                if island._finished:
+                    island.close()
+                    island.deleteLater()
+                else:
+                    island.cancel_focus()
             except RuntimeError:
                 pass
         self.island_windows.clear()
@@ -2758,10 +2833,12 @@ class BackendBridge(QObject):
             self.island_windows[key] = island_win
             island_win.destroyed.connect(lambda _obj=None, key=key: self.island_windows.pop(key, None))
             island_win.signalStateChanged.connect(lambda state, key=key: self._handle_island_state(key, state))
+            island_win.signalFollowupRequested.connect(lambda action, key=key: self._followup_island(key, action))
             self.active_focus_session = session
             self._emit_focus_session("started")
             island_win.show()
-            self._minimize_main_window()
+            if not (options or {}).get("keepWindowOpen"):
+                self._minimize_main_window()
             return True
         except Exception:
             self.active_focus_session = None
@@ -2795,12 +2872,15 @@ class BackendBridge(QObject):
     def _complete_focus_session(self, state):
         """完成专注会话：记录时长、更新项目进度、恢复环境、显示主窗口."""
         session = self.active_focus_session or {}
-        completed_seconds = session.get("focusSeconds") or state.get("totalSeconds") or session.get("totalSeconds") or state.get("completedSeconds") or 0
-        self._record_focus_session(
-            completed_seconds,
-            session.get("mode") or state.get("mode") or "timer",
-            session,
-        )
+        completed_seconds = state.get("completedFocusSeconds", session.get("focusSeconds", 0))
+        if completed_seconds:
+            self._record_focus_session(
+                completed_seconds,
+                session.get("mode") or state.get("mode") or "timer",
+                session,
+            )
+        for island in self.island_windows.values():
+            island.completed_session = dict(session)
         if session.get("mode") == "project":
             self._apply_project_focus_progress(session)
         self._emit_stats_and_achievements()
@@ -2809,8 +2889,54 @@ class BackendBridge(QObject):
         self._restore_focus_environment()
         self._show_main_window()
 
+    def _followup_island(self, key, action):
+        island = self.island_windows.get(key)
+        if not island or not island._finished or self.active_focus_session:
+            return
+        if action == "dismiss":
+            island.close()
+            self.island_windows.pop(key, None)
+            island.deleteLater()
+            return
+        if action not in ("break", "focus"):
+            return
+        previous = getattr(island, "completed_session", {})
+        if hasattr(self, "saveStepReview"):
+            active = self.focus_journey.active or {}
+            if active.get("status") == "review":
+                self.saveStepReview(active.get("progress", ""), active.get("nextAction", ""), False)
+        origin = dict(previous.get("continuation") or previous)
+        task_id = origin.get("taskId")
+        if action == "focus" and task_id is not None:
+            task = next((item for item in self._visible_tasks() if item.get("id") == task_id), None)
+            if not task or task.get("done"):
+                task_id = None
+        if action == "break":
+            every = self._positive_int(origin.get("longBreakEvery", 4), 4)
+            long_due = self._positive_int(origin.get("completedRounds", 1), 1) % every == 0
+            fallback = self.settings_database.get("breakDuration", 5)
+            minutes = self._positive_int(origin.get("longBreakMinutes" if long_due else "shortBreakMinutes", fallback), 5)
+        else:
+            minutes = self._positive_int(origin.get("workMinutes", 25), 25)
+            origin["completedRounds"] = self._positive_int(origin.get("completedRounds", 1), 1) + 1
+        tasks = [{"title": tr("休息一下") if action == "break" else origin.get("title", tr("自由专注")),
+                  "subtitle": origin.get("subtitle", ""), "type": "break" if action == "break" else "focus", "time": minutes * 60}]
+        session = {"mode": "single", "kind": action, "title": tasks[0]["title"], "subtitle": tasks[0]["subtitle"],
+                   "taskId": task_id, "workMinutes": origin.get("workMinutes", 25), "continuation": origin,
+                   "focusSeconds": 0 if action == "break" else minutes * 60, "totalSeconds": minutes * 60, "totalTasks": 1}
+        self._launch_island(tasks, "single", session, {"keepWindowOpen": True})
+
     def _cancel_focus_session(self, state):
-        """取消专注会话：恢复环境、显示主窗口."""
+        """取消专注会话：记录已用时间、恢复环境、显示主窗口."""
+        session = self.active_focus_session or {}
+        elapsed_focus_seconds = state.get("completedFocusSeconds") or 0
+        if elapsed_focus_seconds:
+            self._record_focus_session(
+                elapsed_focus_seconds,
+                session.get("mode") or state.get("mode") or "timer",
+                session,
+            )
+            self._emit_stats_and_achievements()
         self._emit_focus_session("cancelled", state)
         self.active_focus_session = None
         self._restore_focus_environment()
@@ -2881,6 +3007,7 @@ class BackendBridge(QObject):
         }]
         session = {
             "mode": "single",
+            "workMinutes": minutes,
             "title": title,
             "subtitle": subtitle,
             "taskId": task_id,
@@ -2925,9 +3052,11 @@ class BackendBridge(QObject):
                 "title": task.get('title', '任务'),
                 "subtitle": task.get('subtitle') or group_name,
                 "time": minutes * 60,
-                "type": task.get('type', 'focus')
+                "type": task.get('type', 'focus'),
+                "relationNodeKey": task.get('relationNodeKey', ''),
+                "taskId": task.get('taskId'),
             })
-            if include_breaks and index < len(valid_tasks) - 1:
+            if include_breaks and task.get('type', 'focus') != 'break' and index < len(valid_tasks) - 1 and valid_tasks[index + 1].get('type', 'focus') != 'break':
                 island_tasks.append({
                     "title": "短休息",
                     "subtitle": group_name,

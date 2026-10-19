@@ -72,7 +72,15 @@ Popup {
 
                     typography: Typography.Body
                     wrapMode: Text.Wrap
-                    text: model[contextMenu.parent.textRole]
+                    text: {
+                        var value = typeof modelData !== "undefined" ? modelData : model
+                        var role = contextMenu.textRole || (contextMenu.parent ? contextMenu.parent.textRole : "") || ""
+                        if (role.length) {
+                            var label = value && value[role] !== undefined ? value[role] : model[role]
+                            return label === undefined || label === null ? "" : String(label)
+                        }
+                        return value === undefined || value === null ? "" : String(value)
+                    }
                 }
 
                 // 选择指示器

@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS manual_memberships(user_id TEXT PRIMARY KEY REFERENCES users(id),plan TEXT NOT NULL CHECK(plan IN ('free','lite','standard')),expires INTEGER NOT NULL,updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS membership_audit(id TEXT PRIMARY KEY,admin_id TEXT NOT NULL,user_id TEXT NOT NULL,old_plan TEXT NOT NULL,new_plan TEXT NOT NULL,days INTEGER NOT NULL,receipt TEXT NOT NULL UNIQUE,created_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS manual_orders(id TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),plan TEXT NOT NULL CHECK(plan IN ('lite','standard')),amount_cents INTEGER NOT NULL,status TEXT NOT NULL CHECK(status IN ('awaiting_payment','awaiting_review','approved','rejected')),receipt TEXT NOT NULL DEFAULT '',created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,account_name TEXT NOT NULL DEFAULT '');
+CREATE INDEX IF NOT EXISTS manual_order_owner ON manual_orders(user_id,created_at);
+CREATE UNIQUE INDEX IF NOT EXISTS manual_order_pending ON manual_orders(user_id) WHERE status IN ('awaiting_payment','awaiting_review');

@@ -127,10 +127,10 @@ Slider {
         // 动态调整手柄位置：根据 orientation 切换 x/y 轴逻辑
         x: root.orientation === Qt.Horizontal
            ? root.visualPosition * (root.width - width)  // 横向：x 受 visualPosition 控制
-           : (parent.width - width) / 2  // 竖向
+           : ((parent ? parent.width : root.width) - width) / 2  // 竖向
         y: root.orientation === Qt.Vertical
            ? (root.visualPosition) * (root.height - height)  // 竖向：y 受 visualPosition 控制
-           : (parent.height - height) / 2  // 横向
+           : ((parent ? parent.height : root.height) - height) / 2  // 横向
 
 
 

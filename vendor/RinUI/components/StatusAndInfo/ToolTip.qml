@@ -53,14 +53,14 @@ ToolTip {
         id: background
         width: tooltipText.width + 20
         height: tooltipText.height + 14
-        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
         y: -6
 
         radius: controlRadius
         color: backgroundColor
         border.color: borderColor
 
-        layer.enabled: true
+        layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software && GraphicsInfo.api !== GraphicsInfo.Unknown
         layer.effect: Shadow {
             style: "tooltip"
             source: background

@@ -14,7 +14,26 @@ VENDOR_DIR = BASE_DIR / "vendor"
 sys.path.insert(0, str(VENDOR_DIR))
 sys.path.insert(0, str(PROJECT_ROOT))
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
+if sys.platform == "win32":
+    # Supervision needs CPU pixels, not a camera/scene-graph GPU texture exchange.
+    # Avoid driver readback stalls without disabling acceleration of the QML UI.
+    os.environ.setdefault("QT_DISABLE_HW_TEXTURES_CONVERSION", "1")
+# Prefer the stable Chromium software compositor on Windows. The QML interface
+# keeps its own acceleration; only the small focus scene uses a software z-buffer.
+# Opting into accelerated WebEngine is available for machines without the shared
+# D3D texture flicker, but is never required for orbit or growth animations.
+if os.environ.get("FLOWTODO_WEBENGINE_ACCELERATED") != "1":
+    studio_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "").split()
+    for studio_flag in ("--disable-gpu", "--disable-gpu-compositing"):
+        if studio_flag not in studio_flags:
+            studio_flags.append(studio_flag)
+    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = " ".join(studio_flags)
 os.chdir(BASE_DIR)
+from app_paths import windows_package_family
+if sys.platform == "darwin" or windows_package_family():
+    from app_paths import user_data_dir
+    # A signed/read-only .app must never be used as a settings directory.
+    os.environ.setdefault("FLOWTODO_RINUI_CONFIG_DIR", str(user_data_dir().parent / "RinUI/config"))
 
 for stream in (sys.stdout, sys.stderr):
     try:
@@ -22,12 +41,21 @@ for stream in (sys.stdout, sys.stderr):
     except (AttributeError, OSError):
         pass
 
+# MediaPipe's optional drawing imports use six virtual modules. Importing the
+# vision packages before PySide's __feature__ import hook avoids a Windows
+# shiboken/six incompatibility. This loads code only; no models or devices open.
+from supervision_environment import bootstrap  # noqa: E402
+bootstrap()
+
 from RinUI import RinUIWindow  # noqa: E402
 from PySide6.QtCore import QCoreApplication, QObject, QEvent, QTimer, Qt, Slot  # noqa: E402
 from PySide6.QtGui import QAction, QIcon  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon  # noqa: E402
 
 from compat_backend import RinUIBackend  # noqa: E402
+from dpi_utils import DpiService  # noqa: E402
+from notification_audio import play_notification_sound, set_backend as set_audio_backend  # noqa: E402
+from i18n_runtime import tr, translator  # noqa: E402
 from updater import UpdateManager  # noqa: E402
 from version import APP_VERSION  # noqa: E402
 
@@ -48,30 +76,37 @@ class TrayController(QObject):
         self.tray.setToolTip("FlowTodo")
 
         self.menu = QMenu()
-        open_action = QAction("打开 FlowTodo", self.menu)
-        open_action.triggered.connect(self.show_window)
-        new_note_action = QAction("新建便签", self.menu)
-        new_note_action.triggered.connect(self.backend.createNote)
-        show_notes_action = QAction("显示所有便签", self.menu)
-        show_notes_action.triggered.connect(self.backend.showNotes)
-        hide_notes_action = QAction("隐藏所有便签", self.menu)
-        hide_notes_action.triggered.connect(self.backend.hideNotes)
-        show_widget_action = QAction("展开小组件", self.menu)
-        show_widget_action.triggered.connect(self.backend.showDesktopWidget)
-        quit_action = QAction("退出", self.menu)
-        quit_action.triggered.connect(self.quit_application)
-        self.menu.addAction(open_action)
-        self.menu.addSeparator()
-        self.menu.addAction(new_note_action)
-        self.menu.addAction(show_notes_action)
-        self.menu.addAction(hide_notes_action)
-        self.menu.addAction(show_widget_action)
-        self.menu.addSeparator()
-        self.menu.addAction(quit_action)
+        self._menu_actions = [
+            (QAction(self.menu), "打开 FlowTodo", self.show_window),
+            None,
+            (QAction(self.menu), "新建便签", self.backend.createNote),
+            (QAction(self.menu), "显示所有便签", self.backend.showNotes),
+            (QAction(self.menu), "隐藏所有便签", self.backend.hideNotes),
+            (QAction(self.menu), "展开小组件", self.backend.showDesktopWidget),
+            None,
+            (QAction(self.menu), "退出", self.quit_application),
+        ]
+        for entry in self._menu_actions:
+            if entry is None:
+                self.menu.addSeparator()
+                continue
+            action, _source, handler = entry
+            action.triggered.connect(handler)
+            self.menu.addAction(action)
+        self._retranslate_menu()
+        translator().languageChanged.connect(self._retranslate_menu)
         self.tray.setContextMenu(self.menu)
         self.tray.activated.connect(self._on_activated)
         self.window.installEventFilter(self)
         self._sync_visibility()
+
+    def _retranslate_menu(self) -> None:
+        """Tray menus are native widgets, so their labels need a manual refresh."""
+        for entry in self._menu_actions:
+            if entry is None:
+                continue
+            action, source, _handler = entry
+            action.setText(tr(source))
 
     def _behavior(self) -> str:
         return str(self.backend.getSetting("closeBehavior", "tray") or "tray").lower()
@@ -84,7 +119,12 @@ class TrayController(QObject):
             if self._behavior() == "tray":
                 event.ignore()
                 self.window.hide()
-                self.tray.showMessage("FlowTodo", "已最小化到系统托盘", QSystemTrayIcon.MessageIcon.Information, 1800)
+                self.tray.showMessage(
+                    "FlowTodo",
+                    tr("已最小化到系统托盘"),
+                    QSystemTrayIcon.MessageIcon.Information,
+                    1800,
+                )
                 return True
             self.quit_application()
         return super().eventFilter(watched, event)
@@ -100,10 +140,11 @@ class TrayController(QObject):
     @Slot(str, str, str)
     def show_task_reminder(self, kind: str, title: str, message: str):
         """Use Qt's Windows tray integration for a real system notification banner."""
+        play_notification_sound()
         was_visible = self.tray.isVisible()
         if not was_visible:
             self.tray.show()
-        heading = "日程提醒" if kind == "scheduled" else "每日重复任务提醒"
+        heading = tr("日程提醒") if kind == "scheduled" else tr("每日重复任务提醒")
         self.tray.showMessage(
             heading,
             f"{title}\n{message}",
@@ -133,12 +174,35 @@ def main() -> int:
     QCoreApplication.setApplicationName("FlowTodo Native QML")
     QCoreApplication.setApplicationVersion(APP_VERSION)
 
+    from app_paths import user_data_dir
+    from desktop_handoff import Handoff,wake_code,register_protocol
+    handoff=Handoff(user_data_dir(),app)
+    callback=next((wake_code(value) for value in sys.argv[1:] if wake_code(value)),None)
+    if callback and handoff.forward(callback):return 0
+    handoff.listen()
+    if '--smoke-test' not in sys.argv:
+        try:register_protocol(compiled=globals().get('__compiled__'))
+        except OSError:pass  # Browser polling remains available if OS registration is restricted.
+
     backend = RinUIBackend()
+    set_audio_backend(backend)
+    dpi_service = DpiService(app)
+    dpi_service.log_snapshot()
     window = RinUIWindow(shared_engine=False)
     window.engine.rootContext().setContextProperty("Backend", backend)
+    # Every QML engine needs the translator before loading, because the I18n
+    # singleton resolves it as a root context property.
+    window.engine.rootContext().setContextProperty("I18nBridge", translator())
     window.load(BASE_DIR / "qml" / "Main.qml")
+    window.setIcon(BASE_DIR / "logopromax.ico")
     backend.attach_native_window(window.root_window)
     backend.attach_qml_engine(window.engine)
+    def resume_account(code):
+        if backend._cloud.wake_login(code):
+            window.root_window.showNormal();window.root_window.raise_();window.root_window.requestActivate()
+    handoff.wake.connect(resume_account)
+    app._flowtodo_handoff=handoff
+    if callback:QTimer.singleShot(0,lambda:resume_account(callback))
     # The tray mode must keep the process alive while every UI window is hidden.
     # In direct-exit mode TrayController calls app.quit() explicitly.
     app.setQuitOnLastWindowClosed(False)
@@ -153,9 +217,14 @@ def main() -> int:
     # Keep the controller alive for the lifetime of the application.
     app._flowtodo_tray_controller = tray_controller
     app._flowtodo_update_manager = update_manager
+    app._flowtodo_dpi_service = dpi_service
     app.aboutToQuit.connect(backend.shutdown)
     # Delay network work until the first window has finished rendering.
-    QTimer.singleShot(1800, update_manager.check_for_updates)
+    if "--smoke-test" in sys.argv:
+        # Build verification: no updater requests, camera or microphone capture.
+        QTimer.singleShot(1000, app.quit)
+    else:
+        QTimer.singleShot(1800, update_manager.check_for_updates)
     return app.exec()
 
 

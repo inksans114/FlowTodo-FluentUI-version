@@ -10,6 +10,7 @@ Item {
     height: parent.height
 
     property bool collapsed: false
+    property int footerHeight: 0
     property var navigationItems: [
         // {title: "Title", page: "path/to/page.qml", icon: undefined}
     ]
@@ -590,7 +591,7 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: -2
+        anchors.bottomMargin: navigationBar.footerHeight - 2
         // 底部区域最大高度：导航栏可用高度的 20%
         height: getBottomItems().length > 0 ? Math.min(bottomNavigationColumn.implicitHeight, (parent.height - 40) * 0.2) : 0
         contentWidth: parent.width

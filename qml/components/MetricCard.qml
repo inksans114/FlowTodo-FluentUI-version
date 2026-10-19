@@ -10,19 +10,21 @@ Frame {
     property color accent: Theme.currentTheme.colors.primaryColor
 
     Layout.fillWidth: true
-    Layout.preferredHeight: 104
-    leftPadding: 18
-    rightPadding: 18
-    topPadding: 16
-    bottomPadding: 16
+    Layout.preferredWidth: 0
+    Layout.minimumWidth: 0
+    Layout.preferredHeight: 112
+    Layout.minimumHeight: 112
+    leftPadding: 20
+    rightPadding: 20
+    topPadding: 18
+    bottomPadding: 18
 
-    RowLayout {
-        anchors.fill: parent
-        spacing: 14
+    contentItem: RowLayout {
+        spacing: 16
         Rectangle {
-            width: 42
-            height: 42
-            radius: 8
+            Layout.preferredWidth: 44
+            Layout.preferredHeight: 44
+            radius: 12
             color: Qt.alpha(root.accent, 0.14)
             IconWidget {
                 anchors.centerIn: parent
@@ -33,16 +35,24 @@ Frame {
         }
         ColumnLayout {
             Layout.fillWidth: true
+            Layout.preferredWidth: 0
+            Layout.minimumWidth: 0
             spacing: 2
             Text {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 text: root.value
                 typography: Typography.Subtitle
                 color: Theme.currentTheme.colors.textColor
+                elide: Text.ElideRight
             }
             Text {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
                 text: root.label
                 typography: Typography.Caption
                 color: Theme.currentTheme.colors.textSecondaryColor
+                elide: Text.ElideRight
             }
         }
     }

@@ -5,16 +5,29 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "dev:api": "node --env-file-if-exists=.env --watch server.js",
     "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "start": "node --env-file-if-exists=.env server.js",
+    "test": "node --test account.test.js cloud/worker.test.js",
+    "deploy:cloud": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
+    "express": "latest",
+    "gsap": "latest",
+    "lucide-react": "latest",
+    "nodemailer": "^10.1.0",
     "react": "latest",
     "react-dom": "latest",
     "three": "latest",
-    "gsap": "latest",
-    "lucide-react": "latest"
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "wrangler": "^4.149.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261006.1": true
   }
 }

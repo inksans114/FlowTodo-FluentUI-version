@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>FlowTodo 手机摄像头</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#13251f;color:#e5ece8}body{margin:0;padding:28px 22px;max-width:560px;margin:auto}header{color:#9dacaa;font-size:13px}h1{font-size:27px;margin:30px 0 10px}p{line-height:1.7;color:#adbbb4}video{display:block;background:#0b1813;border-radius:18px;width:100%;aspect-ratio:4/3;object-fit:contain;margin:22px 0}button{border:1px solid #425a4c;border-radius:12px;padding:13px 20px;background:#c7dbba;color:#193325;font:inherit;cursor:pointer}button.secondary{background:#24372f;color:#e5ece8}button:disabled{opacity:.5}nav{display:flex;gap:12px;flex-wrap:wrap}#status{padding:14px 16px;border-radius:12px;background:#21392d;color:#d6e5d5}details{margin:26px 0;color:#adbbb4;line-height:1.7}a{color:#c7dbba}code{word-break:break-all;font-size:11px}footer{font-size:12px;margin-top:25px;color:#82958a}
+</style>
+<header>FlowTodo · 局域网镜头</header><h1>把桌面交给手机看</h1><p>手机侧放在桌面上方，让手、作业纸进入画面。电脑负责识别，画面只传到与你配对的这台电脑。</p>
+<div id="status" role="status">正在连接电脑…</div><video id="video" autoplay muted playsinline></video>
+<nav><button id="start">开启后置摄像头</button><button id="flip" class="secondary" disabled>切换镜头</button><button id="stop" class="secondary" disabled>关闭摄像头</button></nav>
+<details><summary>连接或摄像头打不开？</summary><p>保持同一 Wi-Fi，电脑的 Windows 防火墙需要允许 Python 在“专用网络”连接。请使用系统浏览器打开，不要使用 QQ 内置浏览器。</p><p>这是电脑生成的本地 HTTPS 证书。若浏览器不允许摄像头，请下载下方证书，只在确认指纹与电脑一致后安装并信任。iPhone 安装后还需在“设置 → 通用 → 关于本机 → 证书信任设置”开启该证书信任。连接地址变化时请重新扫码。</p><a id="certificate">下载此电脑的本地证书</a><p>证书 SHA-256：<code id="fingerprint"></code></p></details>
+<footer>不录音 · 不录像 · 不上传云端。电脑暂停监督时停止传送；关闭手机页面将关闭镜头。</footer>
+<script>
+const address=new URL(location.href),token=new URLSearchParams(address.hash.slice(1)).get('token')||address.searchParams.get('token')||'';
+// Keep the secret in the fragment: it survives refresh and is never sent as a
+// page URL to the server. Status and frames still authenticate with a header.
+if(token)history.replaceState(null,'',location.pathname+'#token='+encodeURIComponent(token));
+const video=document.querySelector('#video'),status=document.querySelector('#status'),start=document.querySelector('#start'),stop=document.querySelector('#stop'),flip=document.querySelector('#flip');
+const canvas=document.createElement('canvas');let stream=null,facing='environment',running=false,sending=false,connected=false,stopped=false;
+document.querySelector('#certificate').href='/certificate?token='+encodeURIComponent(token);
+const headers={'X-FlowTodo-Token':token};
+async function request(url,options){const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),4500);try{return await fetch(url,{...options,signal:controller.signal});}finally{clearTimeout(timeout);}}
+async function poll(){try{if(!token){start.disabled=true;throw Error('缺少配对信息，请扫描电脑的摄像头连接二维码。');}const response=await request('/status',{headers,cache:'no-store'});if(!response.ok){closeCamera();start.disabled=true;throw Error('配对已关闭，请在电脑重新生成二维码');}const state=await response.json();connected=true;running=state.running;document.querySelector('#fingerprint').textContent=state.fingerprint;status.textContent=stream?(running?'镜头已连接，正在传给电脑识别':'镜头已开启，等待电脑开始或继续监督'):'电脑已连接。点击下方按钮，允许手机摄像头。'}catch(error){connected=false;running=false;status.textContent=error.name==='AbortError'?'连接超时，请检查同一 Wi-Fi 和电脑防火墙。':error.message||'连接中断，请检查同一 Wi-Fi 和电脑防火墙';}if(!stopped)setTimeout(poll,1500)}
+async function openCamera(){closeCamera();try{if(!navigator.mediaDevices?.getUserMedia)throw Error('浏览器未允许安全摄像头访问。请使用系统浏览器，并查看下方证书说明。');stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:facing},width:{ideal:640,max:1280},height:{ideal:480,max:1280},frameRate:{ideal:15,max:20}}});video.srcObject=stream;await video.play();start.disabled=true;stop.disabled=false;flip.disabled=false;status.textContent='镜头已开启，等待电脑开始监督';}catch(error){closeCamera();status.textContent=error.name==='NotAllowedError'?'摄像头权限未允许，请在浏览器设置中允许此站点使用摄像头。':error.message;}}
+function closeCamera(){if(stream)stream.getTracks().forEach(track=>track.stop());stream=null;video.srcObject=null;start.disabled=false;stop.disabled=true;flip.disabled=true;}
+async function sendFrame(){if(!sending&&stream&&connected&&running&&!document.hidden&&video.videoWidth){sending=true;try{const scale=Math.min(1,640/video.videoWidth,480/video.videoHeight);canvas.width=Math.round(video.videoWidth*scale);canvas.height=Math.round(video.videoHeight*scale);canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.7));if(blob&&stream&&running){const response=await request('/frame',{method:'POST',headers:{...headers,'Content-Type':'image/jpeg'},body:blob});if(response.status===403){running=false;closeCamera();status.textContent='本次配对已结束，请重新扫码';}}}catch(error){status.textContent='传送暂时中断，正在重连…';}finally{sending=false;}}if(!stopped)setTimeout(sendFrame,1000)}
+start.onclick=openCamera;stop.onclick=()=>{closeCamera();status.textContent='手机摄像头已关闭';};flip.onclick=()=>{facing=facing==='environment'?'user':'environment';openCamera();};
+document.addEventListener('visibilitychange',()=>{if(document.hidden){closeCamera();status.textContent='离开页面后镜头已关闭，回来请重新开启';}});window.addEventListener('pagehide',()=>{stopped=true;closeCamera();});poll();sendFrame();
+</script></html>

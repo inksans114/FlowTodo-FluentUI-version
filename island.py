@@ -17,7 +17,11 @@ except ImportError:
 from PySide6.QtCore import QMetaObject, QPoint, QTimer, Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QCursor
 from PySide6.QtQuick import QQuickView
+
+from notification_audio import play_notification_sound, set_backend as set_audio_backend
 from PySide6.QtWidgets import QApplication
+
+from i18n_runtime import tr, translator
 
 try:
     from plyer import notification
@@ -33,11 +37,9 @@ except ImportError:
 
 
 def send_windows_notification(title: str, message: str, duration: int = 5):
-    """Send the system notification used by completed focus sessions."""
+    """Send a system notification and play the configured application sound."""
     try:
-        sound_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio.mp3")
-        if os.path.isfile(sound_path):
-            playsound(sound_path, block=False)
+        play_notification_sound()
         if USE_SYSTEM_NOTIFICATION and notification is not None:
             notification.notify(title=title, message=message, timeout=duration, app_name="FlowTodo")
         else:
@@ -55,6 +57,7 @@ class DynamicIslandBridge(QQuickView):
     """
 
     signalStateChanged = Signal(str)
+    signalFollowupRequested = Signal(str)
 
     def __init__(self, tasks=None, mode="group", options=None, preferences=None):
         super().__init__()
@@ -71,7 +74,10 @@ class DynamicIslandBridge(QQuickView):
         self._remaining = 0
         self._total = 0
         self._started_at = None
+        self._deadline = None
         self._finished = False
+        self.guided_waiting = False
+        self.flow_waiting = False
         self._cancelled = False
         self._expanded = False
         self._root = None
@@ -87,8 +93,17 @@ class DynamicIslandBridge(QQuickView):
         self._timer = QTimer(self)
         self._timer.setInterval(1000)
         self._timer.timeout.connect(self._tick)
+        self.visibleChanged.connect(
+            lambda visible: QTimer.singleShot(0, self._update_window_region) if visible else None
+        )
+        self.screenChanged.connect(self._on_screen_changed)
+        self.widthChanged.connect(lambda _width: self._update_window_region())
+        self.heightChanged.connect(lambda _height: self._update_window_region())
 
         self.statusChanged.connect(self._on_qml_status)
+        # The island runs in its own QQuickView, so it needs the shared translator
+        # exposed before the QML file is loaded.
+        self.rootContext().setContextProperty("I18nBridge", translator())
         qml_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "qml", "FocusIsland.qml")
         self.setSource(QUrl.fromLocalFile(qml_path))
         self.resize(640, 220)
@@ -140,15 +155,22 @@ class DynamicIslandBridge(QQuickView):
         self._root.pauseRequested.connect(self.pause_focus)
         self._root.resumeRequested.connect(self.resume_focus)
         self._root.cancelRequested.connect(self.cancel_focus)
+        self._root.followupRequested.connect(self.signalFollowupRequested.emit)
         self._root.dragStarted.connect(self._start_drag)
         self._root.dragMoved.connect(self._move_drag)
         self._root.dragFinished.connect(self._finish_drag)
         self._root.displayModeChanged.connect(self._on_display_mode_changed)
+        self._root.hitRegionChanged.connect(self._update_window_region)
         self._root.exitFinished.connect(self.close)
         self._apply_qml_preferences()
         self._load_and_start_task(0)
+        self._update_window_region()
         QTimer.singleShot(80, self._enter)
         QTimer.singleShot(120, self._flush_pending_guard_alerts)
+
+    def _on_screen_changed(self, _screen):
+        QTimer.singleShot(0, self._move_to_screen_top)
+        QTimer.singleShot(0, self._update_window_region)
 
     def _move_to_screen_top(self):
         screen = self.screen() or QApplication.primaryScreen()
@@ -193,6 +215,7 @@ class DynamicIslandBridge(QQuickView):
             flags |= Qt.WindowStaysOnBottomHint if self._preferences["islandLayer"] == "bottom" else Qt.WindowStaysOnTopHint
             self.setFlags(flags)
         self._move_to_screen_top()
+        QTimer.singleShot(0, self._update_window_region)
 
     def update_preferences(self, preferences):
         """Apply appearance and location changes without interrupting the timer."""
@@ -216,11 +239,11 @@ class DynamicIslandBridge(QQuickView):
     def _environment_text(self):
         labels = []
         if self.options.get("wallpaperEnabled") or self.options.get("wallpaper"):
-            labels.append("壁纸")
+            labels.append(tr("壁纸"))
         if self.options.get("disableOtherApps") or self.options.get("disableApps"):
-            labels.append("专注护盾")
+            labels.append(tr("专注护盾"))
         if self.options.get("whiteNoiseEnabled") or self.options.get("whiteNoise"):
-            labels.append(self.options.get("whiteNoiseName") or "白噪音")
+            labels.append(self.options.get("whiteNoiseName") or tr("白噪音"))
         return "  ·  ".join(str(item) for item in labels)
 
     def _load_and_start_task(self, index):
@@ -228,19 +251,27 @@ class DynamicIslandBridge(QQuickView):
             self._on_all_tasks_completed()
             return
         self.current_index = index
+        self.guided_waiting = False
+        self.flow_waiting = False
+        self._set_root_property("awaitingChoice", False)
+        self._set_root_property("flowMode", bool(self.options.get('flowConfirm')))
+        self._set_root_property("guidedMode", bool(self.options.get("guided")))
         task = self.tasks[index]
         self._total = max(0, int(task.get("time", 0) or 0))
         self._remaining = self._total
         self._started_at = time.monotonic()
+        self._deadline = self._started_at + self._total
 
         if self.mode == "project":
-            phase = f"里程碑 {index + 1}/{len(self.tasks)}"
-            status = "攻坚中"
+            phase = f"{tr('里程碑 ')}{index + 1}/{len(self.tasks)}"
+            status = tr("攻坚中")
         else:
-            phase = f"阶段 {index + 1}/{len(self.tasks)}"
-            status = "专注中" if task.get("type", "focus") == "focus" else "休息中"
+            phase = f"{tr('阶段 ')}{index + 1}/{len(self.tasks)}"
+            status = tr("专注中") if task.get("type", "focus") == "focus" else tr("休息中")
+        if self.options.get("guided"):
+            phase = tr("只做眼前这一段")
 
-        self._set_root_property("taskTitle", str(task.get("title") or "任务"))
+        self._set_root_property("taskTitle", str(task.get("title") or tr("任务")))
         self._set_root_property("taskSubtitle", str(task.get("subtitle") or ""))
         self._set_root_property("phaseLabel", phase)
         self._set_root_property("statusLabel", status)
@@ -252,40 +283,97 @@ class DynamicIslandBridge(QQuickView):
         self._start_noise()
         self._timer.start()
         self._emit_state("task")
+        if not self.options.get("guided"):
+            play_notification_sound()
 
     def _tick(self):
         if self._remaining <= 0:
             return
-        self._remaining = max(0, self._remaining - 1)
+        self._remaining = max(0, int(self._deadline - time.monotonic() + 0.999))
         self._set_root_property("remainingSeconds", self._remaining)
         if self._remaining == 0:
             self._timer.stop()
             self._stop_noise()
             self._set_root_property("running", False)
+            if self.options.get('flowConfirm') and self._current_task().get('type') != 'break':
+                self.flow_waiting = True
+                self._set_root_property('awaitingChoice', True)
+                self._set_root_property('statusLabel', tr('这一步时间到了'))
+                self._emit_state('task_done', 0)
+                play_notification_sound()
+                return
+            if self.options.get("guided"):
+                self.guided_waiting = True
+                self._set_root_property("awaitingChoice", True)
+                self._set_root_property("statusLabel", tr("这一段时间到了"))
+                self._emit_state("task_done", 0)
+                return
             self._emit_state("task_done", 0)
             next_index = self.current_index + 1
             if next_index < len(self.tasks):
-                QTimer.singleShot(320, lambda: self._load_and_start_task(next_index))
+                QTimer.singleShot(320, lambda: self._load_and_start_task(next_index) if not self._cancelled and not self._finished else None)
             else:
                 self._on_all_tasks_completed()
+
+    def continue_flow(self):
+        if not self.flow_waiting or self._finished or self._cancelled:
+            return False
+        self.flow_waiting = False
+        self._load_and_start_task(self.current_index + 1)
+        return True
+
+    def finish_flow_segment(self):
+        if not self.options.get('flowConfirm') or self.flow_waiting or self._finished or self._cancelled:
+            return False
+        remaining = self.focus_snapshot()['remaining']
+        self._timer.stop()
+        self._stop_noise()
+        self._total = max(0, self._total - remaining)
+        self._current_task()['time'] = self._total
+        self._remaining = 0
+        self.flow_waiting = True
+        self._set_root_property('running', False)
+        self._set_root_property('remainingSeconds', 0)
+        self._set_root_property('awaitingChoice', True)
+        self._emit_state('task_done', 0)
+        return True
 
     def pause_focus(self):
         if self._finished or self._cancelled or not self._timer.isActive():
             return
+        self._remaining = max(0, int(self._deadline - time.monotonic() + 0.999))
         self._timer.stop()
         self._stop_noise()
         self._set_root_property("running", False)
-        self._set_root_property("statusLabel", "已暂停")
+        self._set_root_property("statusLabel", tr("已暂停"))
         self._emit_state("paused", self._remaining)
+
+    def finish_guided_segment(self):
+        """Explicit early finish counts actual time, never the full planned duration."""
+        if not self.options.get("guided") or self.guided_waiting or self._finished or self._cancelled:
+            return False
+        remaining = self.focus_snapshot()["remaining"]
+        self._timer.stop()
+        self._stop_noise()
+        self._total = max(0, self._total - remaining)
+        self._current_task()["time"] = self._total
+        self._remaining = 0
+        self.guided_waiting = True
+        self._set_root_property("remainingSeconds", 0)
+        self._set_root_property("running", False)
+        self._set_root_property("awaitingChoice", True)
+        self._emit_state("task_done", 0)
+        return True
 
     def resume_focus(self):
         if self._finished or self._cancelled or self._remaining <= 0 or self._timer.isActive():
             return
         self._started_at = time.monotonic()
+        self._deadline = self._started_at + self._remaining
         self._timer.start()
         self._start_noise()
         task = self._current_task()
-        status = "攻坚中" if self.mode == "project" else ("专注中" if task.get("type", "focus") == "focus" else "休息中")
+        status = tr("攻坚中") if self.mode == "project" else (tr("专注中") if task.get("type", "focus") == "focus" else tr("休息中"))
         self._set_root_property("running", True)
         self._set_root_property("statusLabel", status)
         self._emit_state("resumed", self._remaining)
@@ -323,21 +411,45 @@ class DynamicIslandBridge(QQuickView):
         total_seconds = sum(int(task.get("time", 0) or 0) for task in self.tasks)
         completed_seconds = sum(int(task.get("time", 0) or 0) for task in self.tasks[:self.current_index])
         completed_seconds += self._elapsed_seconds(remaining)
+        completed_focus_seconds = sum(
+            int(task.get("time", 0) or 0)
+            for task in self.tasks[:self.current_index]
+            if task.get("type", "focus") == "focus"
+        )
+        if current.get("type", "focus") == "focus":
+            completed_focus_seconds += self._elapsed_seconds(remaining)
         return {
             "event": event,
             "mode": self.mode,
             "index": self.current_index,
             "totalTasks": len(self.tasks),
-            "title": current.get("title", "任务"),
+            "title": current.get("title", tr("任务")),
             "subtitle": current.get("subtitle", ""),
             "type": current.get("type", "focus"),
             "taskSeconds": int(current.get("time", 0) or 0),
             "remaining": remaining,
             "completedSeconds": max(0, min(total_seconds, completed_seconds)),
+            "completedFocusSeconds": max(0, min(
+                sum(int(task.get("time", 0) or 0) for task in self.tasks if task.get("type", "focus") == "focus"),
+                completed_focus_seconds,
+            )),
             "totalSeconds": total_seconds,
             "cancelled": self._cancelled,
             "finished": self._finished,
+            "running": self.focus_running(),
+            "guidedWaiting": self.guided_waiting,
+            "flowWaiting": self.flow_waiting,
+            "relationNodeKey": current.get('relationNodeKey', '') if self.options.get('flowConfirm') else '',
         }
+
+    def focus_running(self):
+        return self._timer.isActive() and not self._finished and not self._cancelled
+
+    def focus_snapshot(self):
+        remaining = self._remaining
+        if self.focus_running() and self._deadline is not None:
+            remaining = max(0, int(self._deadline - time.monotonic() + 0.999))
+        return self._state_payload("updated", remaining)
 
     def _emit_state(self, event, remaining=None):
         self.signalStateChanged.emit(json.dumps(self._state_payload(event, remaining), ensure_ascii=False))
@@ -345,6 +457,7 @@ class DynamicIslandBridge(QQuickView):
     def cancel_focus(self):
         if self._finished or self._cancelled:
             return
+        self._remaining = self.focus_snapshot()["remaining"]
         self._cancelled = True
         self._timer.stop()
         self._stop_noise()
@@ -353,13 +466,16 @@ class DynamicIslandBridge(QQuickView):
         self._emit_state("cancelled", self._remaining)
         self._invoke("exitIsland")
 
-    def show_guard_alert(self, title="其他应用"):
-        message = f"检测到切换到 {str(title or '其他应用')[:60]}，请回到当前专注"
+    def show_guard_alert(self, title=""):
+        fallback = tr("其他应用")
+        name = str(title or fallback)[:60]
+        message = f"{tr('检测到切换到 ')}{name}{tr('，请回到当前专注')}"
         if not self._page_ready:
             self._pending_guard_alerts.append(message)
             return
         self._set_root_property("guardMessage", message)
         self._invoke("showGuard")
+        QTimer.singleShot(0, self._update_window_region)
 
     def _flush_pending_guard_alerts(self):
         if self._pending_guard_alerts:
@@ -377,10 +493,17 @@ class DynamicIslandBridge(QQuickView):
         self._set_root_property("exitCancelled", False)
         self._emit_state("completed", 0)
         if self.mode == "project":
-            send_windows_notification("FlowTodo: 项目攻坚完成", "所有项目里程碑已顺利完成")
+            send_windows_notification(tr("FlowTodo: 项目攻坚完成"), tr("所有项目里程碑已顺利完成"))
+        elif self._current_task().get("type") == "break":
+            send_windows_notification(tr("FlowTodo: 休息结束"), tr("准备好时可以开始下一轮"))
         else:
-            send_windows_notification("FlowTodo: 任务完成", "所有专注任务已完成")
-        self._invoke("exitIsland")
+            send_windows_notification(tr("FlowTodo: 任务完成"), tr("所有专注任务已完成"))
+        if self.mode == "single":
+            self._set_root_property("miniMode", False)
+            self._set_root_property("awaitingChoice", True)
+            self._set_root_property("statusLabel", tr("休息结束" if self._current_task().get("type") == "break" else "本轮完成"))
+        else:
+            self._invoke("exitIsland")
 
     def _noise_path(self):
         source = self.options.get("whiteNoiseData")
@@ -416,6 +539,81 @@ class DynamicIslandBridge(QQuickView):
         self._stop_noise()
         super().closeEvent(event)
 
+    def _window_region_rect(self):
+        """Return the native client size in physical pixels for SetWindowRgn."""
+        if sys.platform != "win32" or not self.winId():
+            return None
+        rect = ctypes.wintypes.RECT()
+        user32 = ctypes.windll.user32
+        if not user32.GetClientRect(ctypes.wintypes.HWND(int(self.winId())), ctypes.byref(rect)):
+            return None
+        return max(1, rect.right - rect.left), max(1, rect.bottom - rect.top)
+
+    def _scaled_region_rect(self, logical_rect, native_size):
+        left, top, width, height, radius = logical_rect
+        native_width, native_height = native_size
+        scale_x = native_width / max(1.0, float(self.width()))
+        scale_y = native_height / max(1.0, float(self.height()))
+        return (
+            round(left * scale_x),
+            round(top * scale_y),
+            round((left + width) * scale_x),
+            round((top + height) * scale_y),
+            max(1, round(radius * min(scale_x, scale_y))),
+        )
+
+    def _window_region_shapes(self):
+        mini_mode = bool(self._root.property("miniMode")) if self._root is not None else False
+        guard_visible = bool(self._root.property("guardVisible")) if self._root is not None else False
+        scale = self._preferences["islandScale"]
+        center_x = self.width() / 2
+        center_y = self.height() / 2
+        if guard_visible:
+            width, height, radius = 482 * scale, 72 * scale, 31 * scale
+            return [(center_x - width / 2, center_y - height / 2, width, height, radius)]
+        if mini_mode:
+            width, height, radius = 224 * scale, 72 * scale, 31 * scale
+            return [(center_x - width / 2, center_y - height / 2, width, height, radius)]
+        deck_left = center_x - 241 * scale
+        deck_top = center_y - 66 * scale
+        return [
+            (deck_left, deck_top, 292 * scale, 132 * scale, self._preferences["islandScale"] * 31),
+            (deck_left + 304 * scale, deck_top, 178 * scale, 132 * scale, self._preferences["islandScale"] * 31),
+        ]
+
+    def _update_window_region(self):
+        """Clip the native window to visible cards so the desktop remains clickable."""
+        if sys.platform != "win32" or not self.winId():
+            return
+        native_size = self._window_region_rect()
+        if native_size is None:
+            return
+        user32 = ctypes.windll.user32
+        gdi32 = ctypes.windll.gdi32
+        region = None
+        try:
+            for logical_rect in self._window_region_shapes():
+                left, top, right, bottom, radius = self._scaled_region_rect(logical_rect, native_size)
+                shape = gdi32.CreateRoundRectRgn(left, top, right + 1, bottom + 1, radius * 2, radius * 2)
+                if not shape:
+                    continue
+                if region is None:
+                    region = shape
+                else:
+                    gdi32.CombineRgn(region, region, shape, 2)
+                    gdi32.DeleteObject(shape)
+            if region:
+                hwnd = ctypes.wintypes.HWND(int(self.winId()))
+                if not user32.SetWindowRgn(hwnd, region, True):
+                    gdi32.DeleteObject(region)
+        except Exception as exc:
+            if region:
+                try:
+                    gdi32.DeleteObject(region)
+                except Exception:
+                    pass
+            print(f"[Island] Native hit region unavailable: {exc}")
+
     def _island_hit_rect(self):
         mini_mode = bool(self._root.property("miniMode")) if self._root is not None else False
         guard_visible = bool(self._root.property("guardVisible")) if self._root is not None else False
@@ -425,7 +623,4 @@ class DynamicIslandBridge(QQuickView):
         return (self.width() - width) // 2, (self.height() - height) // 2, width, height
 
     def nativeEvent(self, event_type, message):
-        # Do not override WM_NCHITTEST here. Windows sends physical-pixel cursor
-        # coordinates while QQuickView exposes device-independent geometry; mixing
-        # the two made the whole island click-through on scaled displays.
         return super().nativeEvent(event_type, message)

@@ -2,10 +2,11 @@
 import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
+import "../i18n"
 
 FluentPage {
     id: page
-    title: "成就"
+    title: I18n.t("成就")
     wrapperWidth: 760
     horizontalPadding: 36
     contentSpacing: 8
@@ -15,7 +16,7 @@ FluentPage {
     Connections { target: Backend; function onAchievementsChanged() { page.reload() } }
     RowLayout { Layout.fillWidth: true
                 Text { Layout.fillWidth: true
-                text: "完成任务、创建流程和坚持专注都会留下记录。"
+                text: I18n.t("完成任务、创建流程和坚持专注都会留下记录。")
                 typography: Typography.Body
                 color: Theme.currentTheme.colors.textSecondaryColor }
                 Text { text: page.achievements.filter(function(item) { return item.unlocked }).length + " / " + page.achievements.length
@@ -47,7 +48,7 @@ FluentPage {
                 Text { Layout.fillWidth: true
                 text: String(modelData.title)
                 typography: Typography.BodyStrong }
-                Text { text: modelData.unlocked ? "已解锁" : String(modelData.current) + " / " + String(modelData.target)
+                Text { text: modelData.unlocked ? I18n.t("已解锁") : String(modelData.current) + " / " + String(modelData.target)
                 typography: Typography.Caption
                 color: Theme.currentTheme.colors.textSecondaryColor } }
                 Text { Layout.fillWidth: true

@@ -1,0 +1,9 @@
+.data/
+.env
+qa/
+deploy/*.tar.gz
+deploy/cloudflared-linux-amd64
+.wrangler/
+.dev.vars
+.dev.vars.*
+cloud/*.sqlite

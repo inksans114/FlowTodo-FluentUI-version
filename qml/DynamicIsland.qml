@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import "i18n"
 
 Rectangle {
     id: root
@@ -7,10 +8,10 @@ Rectangle {
     height: 330
     color: "transparent"
 
-    property string taskTitle: "准备开始"
+    property string taskTitle: I18n.t("准备开始")
     property string taskSubtitle: ""
-    property string phaseLabel: "阶段 1/1"
-    property string statusLabel: "专注中"
+    property string phaseLabel: I18n.t("阶段 1/1")
+    property string statusLabel: I18n.t("专注中")
     property string taskType: "focus"
     property string environmentText: ""
     property string guardMessage: ""
@@ -176,7 +177,7 @@ Rectangle {
                         color: root.taskType === "break" ? "#2f6c5c" : "#423b78"
                         Text {
                             anchors.centerIn: parent
-                            text: root.taskType === "break" ? "休" : "专"
+                            text: root.taskType === "break" ? I18n.t("休") : I18n.t("专")
                             color: "white"
                             font.family: "Microsoft YaHei UI"
                             font.pixelSize: 14
@@ -267,7 +268,7 @@ Rectangle {
                         color: root.running ? "#423b78" : "#5a4f9f"
                         Text {
                             anchors.centerIn: parent
-                            text: root.running ? "暂停" : "继续"
+                            text: root.running ? I18n.t("暂停") : I18n.t("继续")
                             color: "white"
                             font.family: "Microsoft YaHei UI"
                             font.pixelSize: 13
@@ -286,7 +287,7 @@ Rectangle {
                         color: "#4e252b"
                         Text {
                             anchors.centerIn: parent
-                            text: "结束专注"
+                            text: I18n.t("结束专注")
                             color: "#ffd9d4"
                             font.family: "Microsoft YaHei UI"
                             font.pixelSize: 13
@@ -338,7 +339,7 @@ Rectangle {
             opacity: root.finished ? 1 : 0
             Text {
                 anchors.centerIn: parent
-                text: root.exitCancelled ? "专注已结束" : "全部任务完成"
+                text: root.exitCancelled ? I18n.t("专注已结束") : I18n.t("全部任务完成")
                 color: "white"
                 font.family: "Microsoft YaHei UI"
                 font.pixelSize: 14

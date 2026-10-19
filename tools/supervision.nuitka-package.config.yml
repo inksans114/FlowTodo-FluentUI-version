@@ -1,0 +1,13 @@
+- module-name: 'mediapipe.tasks.c'
+  dlls:
+    - from_filenames:
+        prefixes:
+          - 'libmediapipe'
+      when: 'win32'
+
+- module-name: 'rapidocr_onnxruntime'
+  data-files:
+    - dirs:
+        - 'models'
+    - patterns:
+        - 'config.yaml'

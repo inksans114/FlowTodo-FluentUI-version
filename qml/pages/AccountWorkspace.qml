@@ -3,10 +3,11 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
 import "../components"
+import "../i18n"
 
 FluentPage {
     id: page
-    title: "账户统计"
+    title: I18n.t("账户统计")
     wrapperWidth: 1000
     horizontalPadding: 36
     contentSpacing: 12
@@ -22,10 +23,10 @@ FluentPage {
 
     RowLayout { Layout.fillWidth: true
                 Text { Layout.fillWidth: true
-                text: "本地记录你的完成情况、专注时长和里程碑进度"
+                text: I18n.t("本地记录你的完成情况、专注时长和里程碑进度")
                 typography: Typography.Body
                 color: Theme.currentTheme.colors.textSecondaryColor }
-                Text { text: "数据仅保存在当前数据目录"
+                Text { text: I18n.t("数据仅保存在当前数据目录")
                 typography: Typography.Caption
                 color: Theme.currentTheme.colors.textSecondaryColor } }
     GridLayout {
@@ -33,13 +34,13 @@ FluentPage {
                 columns: width > 760 ? 4 : 2
                 columnSpacing: 8
                 rowSpacing: 8
-        MetricCard { label: "累计专注"
-                value: String((page.stats.focus || {}).totalMinutes || 0) + " 分钟"; iconName: "ic_fluent_timer_20_regular"; accent: "#0f6cbd" }
-        MetricCard { label: "今日专注"
-                value: String((page.stats.focus || {}).todayMinutes || 0) + " 分钟"; iconName: "ic_fluent_weather_sunny_20_regular"; accent: "#b146c2" }
-        MetricCard { label: "专注次数"
+        MetricCard { label: I18n.t("累计专注")
+                value: String((page.stats.focus || {}).totalMinutes || 0) + I18n.t(" 分钟"); iconName: "ic_fluent_timer_20_regular"; accent: "#0f6cbd" }
+        MetricCard { label: I18n.t("今日专注")
+                value: String((page.stats.focus || {}).todayMinutes || 0) + I18n.t(" 分钟"); iconName: "ic_fluent_weather_sunny_20_regular"; accent: "#b146c2" }
+        MetricCard { label: I18n.t("专注次数")
                 value: String((page.stats.focus || {}).totalSessions || 0); iconName: "ic_fluent_history_20_regular"; accent: "#8764b8" }
-        MetricCard { label: "完成任务"
+        MetricCard { label: I18n.t("完成任务")
                 value: String((page.stats.tasks || {}).done || 0); iconName: "ic_fluent_checkmark_circle_20_regular"; accent: "#0f7b0f" }
     }
     RowLayout {
@@ -55,13 +56,13 @@ FluentPage {
                 bottomPadding: 14
             ColumnLayout { anchors.fill: parent
                 spacing: 10
-                Text { text: "工作概览"
+                Text { text: I18n.t("工作概览")
                 typography: Typography.Subtitle }
                 Repeater { model: [
-                    {label: "任务", value: String((page.stats.tasks || {}).done || 0) + " / " + String((page.stats.tasks || {}).total || 0), icon: "ic_fluent_clipboard_task_list_ltr_20_regular"},
-                    {label: "任务流", value: String((page.stats.groups || {}).total || 0), icon: "ic_fluent_flow_20_regular"},
-                    {label: "项目", value: String((page.stats.projects || {}).total || 0), icon: "ic_fluent_board_20_regular"},
-                    {label: "完成里程碑", value: String((page.stats.projects || {}).doneMilestones || 0) + " / " + String((page.stats.projects || {}).totalMilestones || 0), icon: "ic_fluent_flag_20_regular"}
+                    {label: I18n.t("任务"), value: String((page.stats.tasks || {}).done || 0) + " / " + String((page.stats.tasks || {}).total || 0), icon: "ic_fluent_clipboard_task_list_ltr_20_regular"},
+                    {label: I18n.t("任务流"), value: String((page.stats.groups || {}).total || 0), icon: "ic_fluent_flow_20_regular"},
+                    {label: I18n.t("项目"), value: String((page.stats.projects || {}).total || 0), icon: "ic_fluent_board_20_regular"},
+                    {label: I18n.t("完成里程碑"), value: String((page.stats.projects || {}).doneMilestones || 0) + " / " + String((page.stats.projects || {}).totalMilestones || 0), icon: "ic_fluent_flag_20_regular"}
                 ]; delegate: RowLayout { required property var modelData
                 Layout.fillWidth: true
                 Layout.preferredHeight: 48
@@ -86,7 +87,7 @@ FluentPage {
                 spacing: 6
                 RowLayout { Layout.fillWidth: true
                 Text { Layout.fillWidth: true
-                text: "成就"
+                text: I18n.t("成就")
                 typography: Typography.Subtitle }
                 Text { text: page.achievements.filter(function(item) { return item.unlocked }).length + " / " + page.achievements.length
                 typography: Typography.Caption
@@ -116,9 +117,9 @@ FluentPage {
                 spacing: 2
                 RowLayout { Layout.fillWidth: true
                 Text { Layout.fillWidth: true
-                text: String(modelData.title || "成就")
+                text: String(modelData.title || I18n.t("成就"))
                 typography: Typography.BodyStrong }
-                Text { text: modelData.unlocked ? "已解锁" : String(modelData.current || 0) + "/" + String(modelData.target || 1)
+                Text { text: modelData.unlocked ? I18n.t("已解锁") : String(modelData.current || 0) + "/" + String(modelData.target || 1)
                 typography: Typography.Caption
                 color: Theme.currentTheme.colors.textSecondaryColor } }
                 ProgressBar { Layout.fillWidth: true

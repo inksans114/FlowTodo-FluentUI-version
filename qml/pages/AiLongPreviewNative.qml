@@ -2,10 +2,11 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
+import "../i18n"
 
 FluentPage {
     id: page
-    title: "长期计划预览"
+    title: I18n.t("长期计划预览")
     wrapperWidth: 980
     horizontalPadding: 36
     contentSpacing: 14
@@ -70,11 +71,11 @@ FluentPage {
         Layout.fillWidth: true
         ToolButton {
             icon.name: "ic_fluent_arrow_left_20_regular"
-            ToolTip.text: "返回 AI 规划"
+            ToolTip.text: I18n.t("返回 AI 规划")
             ToolTip.visible: hovered
             onClicked: page.returnToWorkspace()
         }
-        Text { text: "返回 AI 规划"; typography: Typography.Caption; color: Theme.currentTheme.colors.textSecondaryColor }
+        Text { text: I18n.t("返回 AI 规划"); typography: Typography.Caption; color: Theme.currentTheme.colors.textSecondaryColor }
         Item { Layout.fillWidth: true }
     }
 
@@ -89,20 +90,20 @@ FluentPage {
                 Icon { name: "ic_fluent_calendar_ltr_24_regular"; size: 24; color: Theme.currentTheme.colors.primaryColor }
                 Text {
                     Layout.fillWidth: true
-                    text: page.hasPlan ? String(page.plan.title || "长期计划") : "还没有可预览的长期计划"
+                    text: page.hasPlan ? String(page.plan.title || I18n.t("长期计划")) : I18n.t("还没有可预览的长期计划")
                     typography: Typography.Subtitle
                     wrapMode: Text.Wrap
                 }
                 Text {
                     visible: page.hasPlan
-                    text: String(page.longPlan.durationText || "未指定周期")
+                    text: String(page.longPlan.durationText || I18n.t("未指定周期"))
                     typography: Typography.BodyStrong
                     color: Theme.currentTheme.colors.primaryColor
                 }
             }
             Text {
                 Layout.fillWidth: true
-                text: page.hasPlan ? String(page.plan.summary || page.longPlan.goal || "") : "请返回 AI 规划页生成长期计划。"
+                text: page.hasPlan ? String(page.plan.summary || page.longPlan.goal || "") : I18n.t("请返回 AI 规划页生成长期计划。")
                 typography: Typography.Body
                 color: Theme.currentTheme.colors.textSecondaryColor
                 wrapMode: Text.Wrap
@@ -111,9 +112,9 @@ FluentPage {
                 Layout.fillWidth: true
                 visible: page.hasPlan
                 spacing: 24
-                Text { text: "周期  " + String(page.longPlan.totalCycles || page.cycles.length || 0); typography: Typography.BodyStrong }
-                Text { text: "每周期  " + String(page.longPlan.cycleLengthDays || 0) + " 天"; typography: Typography.BodyStrong }
-                Text { text: "当前已生成  " + String(page.currentCycle ? (page.currentCycle.days || []).length : 0) + " 天"; typography: Typography.BodyStrong }
+                Text { text: I18n.t("周期  ") + String(page.longPlan.totalCycles || page.cycles.length || 0); typography: Typography.BodyStrong }
+                Text { text: I18n.t("每周期  ") + String(page.longPlan.cycleLengthDays || 0) + I18n.t(" 天"); typography: Typography.BodyStrong }
+                Text { text: I18n.t("当前已生成  ") + String(page.currentCycle ? (page.currentCycle.days || []).length : 0) + I18n.t(" 天"); typography: Typography.BodyStrong }
                 Item { Layout.fillWidth: true }
             }
         }
@@ -126,10 +127,10 @@ FluentPage {
         ColumnLayout {
             anchors.fill: parent
             spacing: 8
-            Text { text: "计划目标"; typography: Typography.Subtitle }
+            Text { text: I18n.t("计划目标"); typography: Typography.Subtitle }
             Text {
                 Layout.fillWidth: true
-                text: String(page.longPlan.goal || page.plan.description || "未提供目标说明")
+                text: String(page.longPlan.goal || page.plan.description || I18n.t("未提供目标说明"))
                 typography: Typography.Body
                 wrapMode: Text.Wrap
             }
@@ -139,7 +140,7 @@ FluentPage {
     Text {
         Layout.fillWidth: true
         visible: page.hasPlan && (page.longPlan.roadmap || []).length > 0
-        text: "完整路线图"
+        text: I18n.t("完整路线图")
         typography: Typography.Subtitle
     }
     ColumnLayout {
@@ -173,10 +174,10 @@ FluentPage {
         ColumnLayout {
             anchors.fill: parent
             spacing: 8
-            Text { text: "当前周期"; typography: Typography.Caption; color: Theme.currentTheme.colors.primaryColor }
+            Text { text: I18n.t("当前周期"); typography: Typography.Caption; color: Theme.currentTheme.colors.primaryColor }
             Text {
                 Layout.fillWidth: true
-                text: page.currentCycle ? String(page.currentCycle.title || "第 1 周期") : ""
+                text: page.currentCycle ? String(page.currentCycle.title || I18n.t("第 1 周期")) : ""
                 typography: Typography.Subtitle
                 wrapMode: Text.Wrap
             }
@@ -190,7 +191,7 @@ FluentPage {
         }
     }
 
-    Text { Layout.fillWidth: true; visible: Boolean(page.currentCycle); text: "每日任务"; typography: Typography.Subtitle }
+    Text { Layout.fillWidth: true; visible: Boolean(page.currentCycle); text: I18n.t("每日任务"); typography: Typography.Subtitle }
     ColumnLayout {
         Layout.fillWidth: true
         visible: Boolean(page.currentCycle)
@@ -206,7 +207,7 @@ FluentPage {
                     RowLayout {
                         Layout.fillWidth: true
                         Text {
-                            text: "第 " + String(modelData.day || (index + 1)) + " 天"
+                            text: I18n.t("第 ") + String(modelData.day || (index + 1)) + I18n.t(" 天")
                             typography: Typography.BodyStrong
                             color: Theme.currentTheme.colors.primaryColor
                         }
@@ -217,7 +218,7 @@ FluentPage {
                             wrapMode: Text.Wrap
                         }
                         Text {
-                            text: String((modelData.tasks || []).length) + " 项"
+                            text: String((modelData.tasks || []).length) + I18n.t(" 项")
                             typography: Typography.Caption
                             color: Theme.currentTheme.colors.textSecondaryColor
                         }
@@ -233,7 +234,7 @@ FluentPage {
                                 spacing: 2
                                 Text {
                                     Layout.fillWidth: true
-                                    text: String(modelData.title || "未命名任务")
+                                    text: String(modelData.title || I18n.t("未命名任务"))
                                     typography: Typography.Body
                                     wrapMode: Text.Wrap
                                 }
@@ -260,7 +261,7 @@ FluentPage {
         ColumnLayout {
             anchors.fill: parent
             spacing: 8
-            Text { text: "周期复盘"; typography: Typography.Subtitle }
+            Text { text: I18n.t("周期复盘"); typography: Typography.Subtitle }
             Text {
                 Layout.fillWidth: true
                 text: page.currentCycle ? String(page.currentCycle.reviewPrompt || "") : ""
@@ -285,19 +286,19 @@ FluentPage {
         ColumnLayout {
             anchors.fill: parent
             spacing: 8
-            Text { text: "导入内容"; typography: Typography.Subtitle }
+            Text { text: I18n.t("导入内容"); typography: Typography.Subtitle }
             RowLayout {
                 Layout.fillWidth: true
-                Text { text: String((page.plan.tasks || []).length) + " 个独立任务"; typography: Typography.Body }
-                Text { text: String((page.plan.groups || []).length) + " 个任务流"; typography: Typography.Body }
-                Text { text: String((page.plan.projects || []).length) + " 个项目"; typography: Typography.Body }
+                Text { text: String((page.plan.tasks || []).length) + I18n.t(" 个独立任务"); typography: Typography.Body }
+                Text { text: String((page.plan.groups || []).length) + I18n.t(" 个任务流"); typography: Typography.Body }
+                Text { text: String((page.plan.projects || []).length) + I18n.t(" 个项目"); typography: Typography.Body }
                 Item { Layout.fillWidth: true }
             }
             Repeater {
                 model: page.plan.projects || []
                 delegate: Text {
                     Layout.fillWidth: true
-                    text: "项目：" + String(modelData.name || modelData.title || "未命名项目")
+                    text: I18n.t("项目：") + String(modelData.name || modelData.title || I18n.t("未命名项目"))
                     typography: Typography.Caption
                     color: Theme.currentTheme.colors.textSecondaryColor
                     wrapMode: Text.Wrap
@@ -310,13 +311,13 @@ FluentPage {
         Layout.fillWidth: true
         visible: page.hasPlan
         Button {
-            text: "放弃计划"
+            text: I18n.t("放弃计划")
             icon.name: "ic_fluent_delete_20_regular"
             onClicked: { Backend.abandonLongPlan(); page.returnToWorkspace() }
         }
         Item { Layout.fillWidth: true }
         Button {
-            text: "开启当前长期计划"
+            text: I18n.t("开启当前长期计划")
             highlighted: true
             icon.name: "ic_fluent_play_20_regular"
             enabled: Boolean(page.plan.longPlan)

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <meta http-equiv="Content-Security-Policy" content="default-src 'self' qrc:; script-src 'self' qrc:; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'">
+ <title>FlowTodo · 专注</title><link rel="stylesheet" href="studio.css">
+ <script defer src="qrc:///qtwebchannel/qwebchannel.js"></script><script defer src="depth-renderer.js"></script><script defer src="scene3d.js"></script><script defer src="ambience.js"></script><script defer src="studio.js"></script>
+</head>
+<body data-scene="tree">
+ <div class="atmosphere" aria-hidden="true"><div class="day-atmosphere"></div><div class="orb orb-one"></div><div class="orb orb-two"></div><div class="fireflies" id="fireflies"></div></div>
+ <canvas id="rain-curtain" class="screen-ambience" aria-hidden="true"></canvas>
+ <header class="topbar">
+  <div class="brand"><span class="brand-mark">◒</span> FlowTodo <span class="brand-divider"></span><span data-i18n="space">安静时光</span><button id="weather" class="weather-pill" title="天气与城市设置">天气</button></div>
+  <nav class="scene-switch" aria-label="切换场景"><button class="selected" data-scene-button="tree" data-i18n="forest">生长之森</button><button data-scene-button="room" data-i18n="room">专注小屋</button></nav>
+  <div class="top-actions"><button id="reward-sound" class="weather-pill" hidden aria-pressed="true">庆祝音 · 开</button><button id="rain-sound" class="weather-pill" aria-pressed="false" title="循环播放本地雨声">雨声 · 关</button><button class="exit" id="exit"><span data-i18n="exit">返回应用</span><kbd>Esc</kbd></button></div>
+ </header>
+ <main>
+  <section class="focus-heading" aria-label="本轮专注">
+   <div class="phase-label"><span class="status-dot"></span><span id="phase">正在连接计时</span></div>
+   <div class="timer" id="timer" role="timer" aria-live="off">--:--</div>
+   <h1 id="goal">只做眼前这一件事</h1>
+   <p id="guided-detail" class="guided-detail" hidden></p>
+   <div class="rounds" id="rounds" aria-label="番茄钟轮次"></div>
+  </section>
+  <section class="scene-stage">
+   <div class="ground-glow"></div>
+   <canvas id="scene-canvas" tabindex="0" role="img" aria-label="可旋转的专注场景，左键拖拽或用方向键旋转，双击或 Home 复位"></canvas>
+   <div class="camera-hint"><span data-i18n="drag">左键拖动旋转</span><button id="reset-view" data-i18n="reset" title="双击场景也可复位">复位视角</button></div>
+  </section>
+  <div class="scene-caption"><span id="caption">让眼前的小事，慢慢长大。</span><div class="growth-track"><div id="growth"></div></div></div>
+ </main>
+ <aside id="guided-panel" class="guided-panel" hidden aria-label="调整当前节奏">
+  <p id="guided-hint" aria-live="polite"></p>
+  <div class="guided-actions"><button id="guided-progress">告诉 AI 当前进度</button><button id="guided-unfinished">还没做完</button><button id="guided-rest">休息一下</button><button id="guided-adjust">调整节奏</button><button id="guided-end">今天先到这里</button></div>
+ </aside>
+ <div id="reward-confetti" class="reward-confetti" aria-hidden="true"></div>
+ <footer>
+  <div class="quiet-stat"><span class="leaf-icon">❧</span><span id="garden">每一段投入，都会留下痕迹</span></div>
+  <div class="controls">
+   <button class="control secondary" id="thought" title="Ctrl+Shift+Space"><svg viewBox="0 0 24 24"><path d="M6 4h12v12l-4 4H6Z M14 20v-4h4 M9 8h6 M9 12h6"/></svg><span data-i18n="thought">暂存念头</span></button>
+   <button class="control primary" id="pause" disabled><svg id="pause-icon" viewBox="0 0 24 24"><path d="M9 6v12M15 6v12"/></svg><span id="pause-label">暂停</span></button>
+   <button class="control secondary" id="finish"><svg viewBox="0 0 24 24"><path d="m6 12 4 4 8-8"/></svg><span data-i18n="finish">完成本轮</span></button>
+  </div>
+  <button class="leave" id="leave" data-i18n="leave">留个接续点，稍后回来 ↗</button>
+ </footer>
+ <dialog id="thought-dialog">
+  <form id="thought-form"><div class="dialog-top"><h2 data-i18n="thought">暂存念头</h2><button type="button" class="dismiss" id="dismiss" aria-label="关闭">×</button></div>
+   <p data-i18n="thoughtHint">记下来就好，眼前的事可以继续。</p>
+   <textarea id="thought-input" maxlength="2000" rows="3" placeholder="先记一句，稍后再处理…"></textarea>
+   <div class="dialog-actions"><small>Ctrl + Enter</small><button class="save" type="submit" data-i18n="save">存下，继续专注</button></div>
+  </form>
+ </dialog>
+ <dialog id="weather-dialog">
+  <form id="weather-form">
+   <div class="dialog-top"><h2 data-i18n="weatherTitle">窗外的天气</h2><button type="button" class="dismiss" id="weather-dismiss" aria-label="关闭">×</button></div>
+   <p id="weather-detail">自动匹配网络所在城市，也可以手动修改。</p>
+   <label class="city-label" for="weather-city" data-i18n="cityLabel">城市</label><input id="weather-city" maxlength="80" placeholder="例如：上海 / Shanghai" autocomplete="off">
+   <div class="weather-actions"><button class="weather-option" id="weather-auto" type="button" data-i18n="autoCity">自动定位</button><button class="weather-option" id="weather-off" type="button" data-i18n="weatherOff">关闭天气</button><button class="save" type="submit" data-i18n="useCity">使用这个城市</button></div>
+   <label class="rain-volume" for="rain-volume"><span data-i18n="rainVolume">雨声音量</span><input id="rain-volume" type="range" min="0" max="100" value="25"><output id="rain-volume-value">25%</output></label>
+   <small class="weather-source">天气：<a href="https://open-meteo.com/">Open-Meteo</a> · 自动定位：<a href="https://ipapi.co/">ipapi</a><br><span data-i18n="weatherPrivacy">仅查询城市级天气，不保存 IP。网络不可用时保留普通场景。</span></small>
+  </form>
+ </dialog>
+ <dialog id="guided-dialog">
+  <form id="guided-form"><div class="dialog-top"><h2>下一段，按你的状态来</h2><button type="button" class="dismiss" id="guided-dismiss" aria-label="关闭">×</button></div>
+   <p>做到哪里、现在的感受、想怎么继续，都可以说。</p>
+   <div class="guided-options"><button type="button" data-feedback="我想把接下来的内容拆成更小块，每次只看一个具体动作。">拆小块</button><button type="button" data-feedback="我想围绕一整张卷子或一个完整模块推进，不要拆得太碎。">整块推进</button><button type="button" data-feedback="我现在有点累，先安排一段休息，再轻一点地继续。">先缓一缓</button></div>
+   <textarea id="guided-feedback" maxlength="1000" rows="3" placeholder="比如：第一题卡住了，想先换两道简单题。或：状态不错，我想整张做。"></textarea>
+   <div class="dialog-actions"><small>确认后调用 AI 调整这一段</small><button class="save" id="guided-submit" type="submit">按这个想法调整</button></div>
+  </form>
+ </dialog>
+ <dialog id="progress-dialog">
+  <div class="dialog-top"><h2 id="progress-title">现在做到哪里了？</h2><button type="button" class="dismiss" id="progress-dismiss" aria-label="关闭">×</button></div>
+  <p id="progress-intro">可以只说一句，下面的科目、材料和题号都可留空。计时已暂停，不用赶。</p>
+  <form id="progress-form">
+   <div class="progress-fields">
+    <label>科目 / 当前事项<input id="progress-subject" maxlength="60" placeholder="例如：英语（也可以是工作事项）" autocomplete="off"></label>
+    <label>哪份材料<input id="progress-paper" maxlength="80" placeholder="例如：第 2 张卷子 / 第 3 章" autocomplete="off"></label>
+    <div class="progress-section-field">
+     <label for="progress-section">题型 / 部分</label><input id="progress-section" maxlength="60" placeholder="选择题、大题，或当前模块" autocomplete="off">
+     <div class="progress-section-choices" role="group" aria-label="快速选择题型">
+      <button type="button" data-progress-section="选择题" aria-pressed="false">选择题</button><button type="button" data-progress-section="填空题" aria-pressed="false">填空题</button><button type="button" data-progress-section="大题" aria-pressed="false">大题</button><button type="button" data-progress-section="阅读 / 写作" aria-pressed="false">阅读 / 写作</button>
+     </div>
+    </div>
+    <label>做到哪里<input id="progress-position" maxlength="120" placeholder="例如：做到第 6 题 / 还剩两道大题" autocomplete="off"></label>
+   </div>
+   <label class="progress-note" for="progress-note">告诉 AI<textarea id="progress-note" maxlength="700" rows="3" placeholder="比如：物理做完了，现在做英语第二张的选择题。先让我做三道；大题想多留点时间。"></textarea></label>
+   <div class="dialog-actions"><small>提交后请求 AI，根据最新进度调整；不会自动标记任务完成。</small><button class="save" id="progress-submit" type="submit">按当前进度安排</button></div>
+  </form>
+  <form id="progress-questions-form" hidden>
+   <div id="progress-questions"></div>
+   <div class="dialog-actions"><button id="progress-skip" type="button" class="weather-option">先按已知信息安排</button><button class="save" id="progress-answers-submit" type="submit">按我的回答继续</button></div>
+  </form>
+  <div class="progress-reminder">
+   <span id="progress-reminder-label">主动问问我的进度</span>
+   <div id="progress-check" class="progress-check-options" role="group" aria-labelledby="progress-reminder-label">
+    <button type="button" data-progress-check="0" aria-pressed="true">关闭</button><button type="button" data-progress-check="10" aria-pressed="false">每 10 分钟</button><button type="button" data-progress-check="20" aria-pressed="false">每 20 分钟</button><button type="button" data-progress-check="30" aria-pressed="false">每 30 分钟</button>
+   </div>
+  </div>
+  <small class="progress-cost">提醒不调用 AI，可跳过；提交进度或回答才使用 API。间隔按实际专注时间计算。</small>
+ </dialog>
+ <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body></html>

@@ -39,10 +39,10 @@ Frame {
     bottomPadding: 0
 
     radius: 0
-    topLeftRadius: _roundTop ? Theme.currentTheme.appearance.smallRadius : 0
-    topRightRadius: _roundTop ? Theme.currentTheme.appearance.smallRadius : 0
-    bottomLeftRadius: _roundBottom ? Theme.currentTheme.appearance.smallRadius : 0
-    bottomRightRadius: _roundBottom ? Theme.currentTheme.appearance.smallRadius : 0
+    topLeftRadius: _roundTop ? Theme.currentTheme.appearance.cardRadius : 0
+    topRightRadius: _roundTop ? Theme.currentTheme.appearance.cardRadius : 0
+    bottomLeftRadius: _roundBottom ? Theme.currentTheme.appearance.cardRadius : 0
+    bottomRightRadius: _roundBottom ? Theme.currentTheme.appearance.cardRadius : 0
     border.color: "transparent"
     // implicitHeight: 62
     Layout.fillWidth: true

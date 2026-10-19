@@ -14,6 +14,9 @@ from PySide6.QtCore import QObject, Property, QTimer, Signal, Slot
 DEFAULT_SETTINGS = {
     "theme": "auto",
     "focusDuration": 25,
+    "notificationSoundEnabled": True,
+    "notificationSoundPath": "",
+    "notificationSoundVolume": 0.8,
     "autoNext": False,
     "autoStart": False,
     "closeBehavior": "tray",
@@ -39,8 +42,8 @@ class NativeBackend(QObject):
 
     def __init__(self, project_root: Path):
         super().__init__()
-        app_data = Path(os.environ.get("LOCALAPPDATA") or Path.home())
-        self.data_dir = app_data / "FlowTodo" / "data"
+        from app_paths import user_data_dir
+        self.data_dir = user_data_dir()
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.tasks_file = self.data_dir / "tasks.json"
         self.settings_file = self.data_dir / "settings.json"

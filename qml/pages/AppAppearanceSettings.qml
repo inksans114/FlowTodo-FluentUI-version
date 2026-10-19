@@ -2,13 +2,15 @@
 import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
+import "../i18n"
+import "../components"
 
 FluentPage {
     id: page
-    title: "应用外观"
-    wrapperWidth: 760
-    horizontalPadding: 36
-    contentSpacing: 12
+    title: I18n.t("应用外观")
+    wrapperWidth: 900
+    horizontalPadding: 32
+    contentSpacing: 18
     property bool loading: true
     property string accent: "#0f6cbd"
     property var palette: ["#0f6cbd", "#0078d4", "#107c10", "#d83b01", "#b146c2", "#8764b8", "#00b7c3", "#e74856"]
@@ -18,12 +20,14 @@ FluentPage {
     function setMode(index) { Theme.setTheme(index === 0 ? Theme.mode.Auto : index === 1 ? Theme.mode.Light : Theme.mode.Dark); if (!loading) Backend.setSetting("theme", ["auto", "light", "dark"][index]) }
     function setBackdrop(index) { Theme.setBackdropEffect(["none", "mica", "acrylic"][index]); if (!loading) Backend.setSetting("nativeBackdrop", ["none", "mica", "acrylic"][index]) }
     Component.onCompleted: load()
+    readonly property bool customEligible: { Backend.accountJson; try { return JSON.parse(Backend.appearanceJson).eligible } catch(e) { return false } }
+    Button { text: page.customEligible ? "会员个性化 · 配色、文字与图标" : "会员个性化 · Lite / Standard 解锁"; onClicked: { var router=page.nav();if(router)router.push(Qt.resolvedUrl("CustomAppearance.qml")) } }
     RowLayout { Layout.fillWidth: true
                 ToolButton { icon.name: "ic_fluent_arrow_left_20_regular"
-                ToolTip.text: "返回系统设置"
+                ToolTip.text: I18n.t("返回系统设置")
                 ToolTip.visible: hovered
                 onClicked: { var router = page.nav(); if (router) router.pop() } }
-                Text { text: "返回系统设置"
+                Text { text: I18n.t("返回系统设置")
                 typography: Typography.Caption
                 color: Theme.currentTheme.colors.textSecondaryColor }
                 Item { Layout.fillWidth: true } }
@@ -36,21 +40,21 @@ FluentPage {
                 spacing: 14
             RowLayout { Layout.fillWidth: true
                 Text { Layout.fillWidth: true
-                text: "明暗模式"
+                text: I18n.t("明暗模式")
                 typography: Typography.BodyStrong }
                 ComboBox { id: mode
                 Layout.preferredWidth: 160
-                model: ["跟随系统", "浅色", "深色"]
+                model: [I18n.t("跟随系统"), I18n.t("浅色"), I18n.t("深色")]
                 onActivated: page.setMode(currentIndex) } }
             RowLayout { Layout.fillWidth: true
                 Text { Layout.fillWidth: true
-                text: "窗口材质"
+                text: I18n.t("窗口材质")
                 typography: Typography.BodyStrong }
                 ComboBox { id: backdrop
                 Layout.preferredWidth: 160
-                model: ["实色", "Mica", "Acrylic"]
+                model: [I18n.t("实色"), "Mica", "Acrylic"]
                 onActivated: page.setBackdrop(currentIndex) } }
-            Text { text: "主题色"
+            Text { text: I18n.t("主题色")
                 typography: Typography.BodyStrong }
             Flow { Layout.fillWidth: true
                 spacing: 12
@@ -83,12 +87,13 @@ FluentPage {
                 } } }
                 DropDownColorPicker {
                     id: customPicker
+                    enabled: page.customEligible
                     width: 142
                     height: 42
                     implicitWidth: 142
                     implicitHeight: 42
                     color: page.accent
-                    text: "自定义"
+                    text: I18n.t("自定义")
                     textVisible: true
                     hexText: false
                     moreVisible: true
@@ -100,7 +105,7 @@ FluentPage {
                     alphaInputVisible: false
                     ringMode: false
                     ToolTip.visible: hovered
-                    ToolTip.text: "自定义主题色"
+                    ToolTip.text: I18n.t("自定义主题色")
                     onColorChanged: {
                         var nextColor = color.toString()
                         if (!page.loading && nextColor.toLowerCase() !== page.accent.toLowerCase())
@@ -108,6 +113,7 @@ FluentPage {
                     }
                 }
                 TextField { Layout.preferredWidth: 120
+                enabled: page.customEligible
                 text: page.accent
                 placeholderText: "#0f6cbd"
                 onEditingFinished: if (/^#[0-9a-fA-F]{6}$/.test(text.trim())) page.setAccent(text.trim()) }

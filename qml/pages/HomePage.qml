@@ -3,10 +3,11 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
 import "../components"
+import "../i18n"
 
 FluentPage {
     id: page
-    title: "今日任务"
+    title: I18n.t("今日任务")
     wrapperWidth: 1040
     horizontalPadding: 34
 
@@ -49,20 +50,20 @@ FluentPage {
         Layout.fillWidth: true
         spacing: 12
         MetricCard {
-            label: "全部任务"
+            label: I18n.t("全部任务")
             value: String(Backend.taskCount)
             iconName: "ic_fluent_list_20_regular"
             accent: "#4099b2"
         }
         MetricCard {
-            label: "今日已完成"
+            label: I18n.t("今日已完成")
             value: String(Backend.completedCount)
             iconName: "ic_fluent_checkmark_circle_20_regular"
             accent: "#2eaa76"
         }
         MetricCard {
-            label: "今日专注"
-            value: Backend.todayFocusMinutes + " 分钟"
+            label: I18n.t("今日专注")
+            value: Backend.todayFocusMinutes + I18n.t(" 分钟")
             iconName: "ic_fluent_timer_20_regular"
             accent: "#7054b8"
         }
@@ -70,7 +71,7 @@ FluentPage {
 
     SettingCard {
         Layout.fillWidth: true
-        title: "快速添加"
+        title: I18n.t("快速添加")
         description: Backend.todayLabel
         icon.name: "ic_fluent_add_circle_20_regular"
 
@@ -83,17 +84,17 @@ FluentPage {
             TextField {
                 id: newTaskTitle
                 Layout.fillWidth: true
-                placeholderText: "任务名称"
+                placeholderText: I18n.t("任务名称")
                 onAccepted: page.submitTask()
             }
             TextField {
                 id: newTaskMeta
                 Layout.preferredWidth: 150
-                placeholderText: "备注（可选）"
+                placeholderText: I18n.t("备注（可选）")
                 onAccepted: page.submitTask()
             }
             Button {
-                text: "添加"
+                text: I18n.t("添加")
                 highlighted: true
                 icon.name: "ic_fluent_add_20_regular"
                 onClicked: page.submitTask()
@@ -105,26 +106,26 @@ FluentPage {
                 ComboBox {
                     id: taskType
                     Layout.preferredWidth: 190
-                    model: ["普通任务", "每日重复任务"]
+                    model: [I18n.t("普通任务"), I18n.t("每日重复任务")]
                     onActivated: function(index) {
                         if (index === 1 && !dailyReminder.time) Qt.callLater(function() { dailyReminder.setTime("18:00") })
                     }
                 }
                 Text {
-                    text: taskType.currentIndex === 1 ? "每天 0:00 自动重置，可设置未完成提醒" : "一次性任务，完成后保留记录"
+                    text: taskType.currentIndex === 1 ? I18n.t("每天 0:00 自动重置，可设置未完成提醒") : I18n.t("一次性任务，完成后保留记录")
                     typography: Typography.Caption
                     color: Theme.currentTheme.colors.textSecondaryColor
                     Layout.fillWidth: true
                     elide: Text.ElideRight
                 }
-                Text { visible: taskType.currentIndex === 1; text: "提醒时间"; typography: Typography.Caption }
+                Text { visible: taskType.currentIndex === 1; text: I18n.t("提醒时间"); typography: Typography.Caption }
                 TimePicker {
                     id: dailyReminder
                     visible: taskType.currentIndex === 1
                     Layout.preferredWidth: 130
                     use24Hour: true
-                    hourText: "时"
-                    minuteText: "分"
+                    hourText: I18n.t("时")
+                    minuteText: I18n.t("分")
                 }
             }
         }
@@ -135,12 +136,12 @@ FluentPage {
         spacing: 12
         Text {
             Layout.fillWidth: true
-            text: "任务列表"
+            text: I18n.t("任务列表")
             typography: Typography.BodyStrong
         }
         TextField {
             Layout.preferredWidth: 260
-            placeholderText: "搜索任务"
+            placeholderText: I18n.t("搜索任务")
             leftPadding: 36
             onTextChanged: page.searchQuery = text
             IconWidget {
@@ -184,7 +185,7 @@ FluentPage {
                         spacing: 2
                         Text {
                             Layout.fillWidth: true
-                            text: String(taskCard.modelData.title || "未命名任务")
+                            text: String(taskCard.modelData.title || I18n.t("未命名任务"))
                             typography: Typography.BodyStrong
                             color: Boolean(taskCard.modelData.done) ? Theme.currentTheme.colors.textColor
                                 : taskCard.modelData.dailyStatus === "important" ? "#d13438"
@@ -196,16 +197,16 @@ FluentPage {
                         }
                         Text {
                             Layout.fillWidth: true
-                            text: String(taskCard.modelData.meta || taskCard.modelData.description || "今天")
+                            text: String(taskCard.modelData.meta || taskCard.modelData.description || I18n.t("今天"))
                             typography: Typography.Caption
                             color: Theme.currentTheme.colors.textSecondaryColor
                             elide: Text.ElideRight
                         }
                         Text {
                             visible: taskCard.modelData.taskType === "daily"
-                            text: taskCard.modelData.dailyStatus === "important" ? "昨日未完成 · 需要优先处理"
-                                : taskCard.modelData.dailyStatus === "warning" ? "已到提醒时间 · " + String(taskCard.modelData.reminderTime || "")
-                                : "每日重复 · 每天 0:00 重置 · 提醒 " + String(taskCard.modelData.reminderTime || "")
+                            text: taskCard.modelData.dailyStatus === "important" ? I18n.t("昨日未完成 · 需要优先处理")
+                                : taskCard.modelData.dailyStatus === "warning" ? I18n.t("已到提醒时间 · ") + String(taskCard.modelData.reminderTime || "")
+                                : I18n.t("每日重复 · 每天 0:00 重置 · 提醒 ") + String(taskCard.modelData.reminderTime || "")
                             typography: Typography.Caption
                             color: taskCard.modelData.dailyStatus === "important" ? "#d13438"
                                 : taskCard.modelData.dailyStatus === "warning" ? "#c58b00"
@@ -213,7 +214,7 @@ FluentPage {
                         }
                     }
                     Button {
-                        text: "专注"
+                        text: I18n.t("专注")
                         highlighted: true
                         enabled: !Boolean(taskCard.modelData.done)
                         icon.name: "ic_fluent_timer_20_regular"
@@ -221,7 +222,7 @@ FluentPage {
                     }
                     ToolButton {
                         icon.name: "ic_fluent_delete_20_regular"
-                        ToolTip.text: "删除任务"
+                        ToolTip.text: I18n.t("删除任务")
                         ToolTip.visible: hovered
                         onClicked: Backend.deleteTask(Number(taskCard.modelData.id))
                     }
@@ -246,12 +247,12 @@ FluentPage {
             }
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                text: page.tasks.length ? "没有匹配的任务" : "今天还没有任务"
+                text: page.tasks.length ? I18n.t("没有匹配的任务") : I18n.t("今天还没有任务")
                 typography: Typography.BodyStrong
             }
             Text {
                 Layout.alignment: Qt.AlignHCenter
-                text: page.tasks.length ? "换个关键词试试" : "从上方快速添加第一项"
+                text: page.tasks.length ? I18n.t("换个关键词试试") : I18n.t("从上方快速添加第一项")
                 typography: Typography.Caption
                 color: Theme.currentTheme.colors.textSecondaryColor
             }

@@ -94,6 +94,7 @@ QtObject {
         property real borderFactor: 1.2
         property real borderOnAccentFactor: 1.08
         property int smallRadius: 3
+        property int cardRadius: 12
 
         property int dialogTitleBarHeight: 32
         property int windowTitleBarHeight: 48

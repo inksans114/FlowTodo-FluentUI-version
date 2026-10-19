@@ -1,0 +1,37 @@
+name: Build macOS test app
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: arm64
+      - name: Confirm native Apple Silicon runner
+        run: |
+          test "$(uname -m)" = arm64
+          python --version
+      - name: Install build dependencies
+        run: python -m pip install -r requirements-macos.txt
+      - name: Prepare and verify public supervision models
+        run: python tools/prepare_supervision_models.py
+      - name: Source and resource checks
+        run: python tools/build_macos.py --check
+      - name: Build and verify app
+        run: python tools/build_macos.py
+      - name: Upload distributable ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlowTodo-macOS-arm64-test
+          path: dist/macos-*/FlowTodo-macOS-arm64-*-test.zip
+          if-no-files-found: error
+          retention-days: 14

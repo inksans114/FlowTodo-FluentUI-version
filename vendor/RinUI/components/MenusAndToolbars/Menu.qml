@@ -107,7 +107,7 @@ Menu {
         color: Theme.currentTheme.colors.backgroundAcrylicColor
         border.color: Theme.currentTheme.colors.flyoutBorderColor
 
-        layer.enabled: true
+        layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software && GraphicsInfo.api !== GraphicsInfo.Unknown
         layer.effect: Shadow {
             id: shadow
             style: "flyout"

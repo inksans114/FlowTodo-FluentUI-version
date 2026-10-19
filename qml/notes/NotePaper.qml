@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Window as QtWindow
 import RinUI
+import "../i18n"
 
 QtWindow.Window {
     id: paper
@@ -13,7 +14,7 @@ QtWindow.Window {
         | (alwaysOnTop ? Qt.WindowStaysOnTopHint : 0)
 
     property string noteId: ""
-    property string noteTitle: "未命名便签"
+    property string noteTitle: I18n.t("未命名便签")
     property string noteContent: ""
     property bool collapsed: false
     property bool alwaysOnTop: false
@@ -167,7 +168,7 @@ QtWindow.Window {
             y: 29
             width: parent.width - 48
             height: 16
-            text: paper.noteContent.length ? paper.noteContent.replace(/\s+/g, " ") : "空便签"
+            text: paper.noteContent.length ? paper.noteContent.replace(/\s+/g, " ") : I18n.t("空便签")
             elide: Text.ElideRight
             typography: Typography.Caption
             color: Theme.currentTheme.colors.textSecondaryColor
@@ -181,7 +182,7 @@ QtWindow.Window {
             width: parent.width - 126
             height: 30
             text: paper.noteTitle
-            placeholderText: "便签标题"
+            placeholderText: I18n.t("便签标题")
             background: Rectangle { color: "transparent" }
             onTextChanged: if (paper.visible && text !== paper.noteTitle) paper.noteEdited(paper.noteId, text, bodyInput.text)
         }
@@ -193,7 +194,7 @@ QtWindow.Window {
             width: 34
             height: 34
             icon.name: "ic_fluent_arrow_minimize_20_regular"
-            ToolTip.text: "折叠为胶囊"
+            ToolTip.text: I18n.t("折叠为胶囊")
             ToolTip.visible: hovered
             onClicked: paper.collapseRequested(paper.noteId)
         }
@@ -205,7 +206,7 @@ QtWindow.Window {
             width: 34
             height: 34
             icon.name: "ic_fluent_dismiss_20_regular"
-            ToolTip.text: "隐藏便签"
+            ToolTip.text: I18n.t("隐藏便签")
             ToolTip.visible: hovered
             onClicked: paper.hideRequested(paper.noteId)
         }
@@ -234,7 +235,7 @@ QtWindow.Window {
                     text: paper.noteContent
                     readOnly: false
                     wrapMode: TextEdit.Wrap
-                    placeholderText: "写下今天要记住的事..."
+                    placeholderText: I18n.t("写下今天要记住的事...")
                     selectByMouse: true
                     background: Rectangle { color: "transparent" }
                     onTextChanged: if (paper.visible && text !== paper.noteContent) paper.noteEdited(paper.noteId, titleInput.text, text)

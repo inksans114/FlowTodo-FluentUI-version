@@ -20,7 +20,7 @@ Item {
     property var expandDirection: Expander.Down
     readonly property bool directionUp: root.expandDirection === Expander.Up
     property bool roundContentEdgeItems: false
-    property real radius: Theme.currentTheme.appearance.smallRadius
+    property real radius: Theme.currentTheme.appearance.cardRadius
 
     property alias header: headerCustom.data
     property string text

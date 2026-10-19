@@ -2,18 +2,20 @@
 import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
+import "../i18n"
+import "../components"
 
 FluentPage {
     id: page
-    title: "灵动岛"
+    title: I18n.t("灵动岛")
     wrapperWidth: 760
     horizontalPadding: 36
     contentSpacing: 12
     property bool loading: true
     property string selectedTheme: "material"
     property var islandThemes: [
-        { id: "default", label: "默认" },
-        { id: "cw1", label: "远古版" },
+        { id: "default", label: I18n.t("默认") },
+        { id: "cw1", label: I18n.t("远古版") },
         { id: "win10", label: "Windows 10 Fluent2" },
         { id: "material", label: "Material You MD3" }
     ]
@@ -26,10 +28,10 @@ FluentPage {
     Component.onCompleted: load()
     RowLayout { Layout.fillWidth: true
                 ToolButton { icon.name: "ic_fluent_arrow_left_20_regular"
-                ToolTip.text: "返回系统设置"
+                ToolTip.text: I18n.t("返回系统设置")
                 ToolTip.visible: hovered
                 onClicked: { var router = page.nav(); if (router) router.pop() } }
-                Text { text: "返回系统设置"
+                Text { text: I18n.t("返回系统设置")
                 typography: Typography.Caption
                 color: Theme.currentTheme.colors.textSecondaryColor }
                 Item { Layout.fillWidth: true } }
@@ -38,60 +40,46 @@ FluentPage {
                 rightPadding: 18
                 topPadding: 16
                 bottomPadding: 16
-        ColumnLayout { anchors.fill: parent
+        contentItem: ColumnLayout {
                 spacing: 14
-            Text { text: "灵动岛主题"; typography: Typography.BodyStrong }
-            Flow {
+            Text { text: I18n.t("灵动岛主题"); typography: Typography.BodyStrong }
+            GridLayout {
                 Layout.fillWidth: true
-                spacing: 10
+                columns: width >= 700 ? 4 : width >= 340 ? 2 : 1
+                uniformCellWidths: true
+                columnSpacing: 12
+                rowSpacing: 12
                 Repeater {
                     model: page.islandThemes
                     delegate: Button {
                         required property var modelData
-                        width: 158
-                        height: 112
-                        flat: true
-                        padding: 0
-                        ToolTip.visible: hovered
-                        ToolTip.text: modelData.label
+                        objectName: "themePreview_" + modelData.id
+                        Layout.fillWidth: true
+                        Layout.preferredWidth: 0
+                        Layout.minimumWidth: 0
+                        Layout.preferredHeight: 158
+                        padding: 6
                         onClicked: page.selectTheme(modelData.id)
                         background: Rectangle {
-                            radius: 8
-                            color: "transparent"
-                            border.width: page.selectedTheme === modelData.id ? 3 : 1
-                            border.color: page.selectedTheme === modelData.id
-                                ? Theme.currentTheme.colors.primaryColor
-                                : Theme.currentTheme.colors.cardBorderColor
+                            radius: Theme.currentTheme.appearance.cardRadius
+                            color: Theme.currentTheme.colors.cardColor
+                            border.width: page.selectedTheme === modelData.id ? 2 : 1
+                            Behavior on color { ColorAnimation { duration: Backend.systemMotionEnabled ? 140 : 0 } }
+                            Behavior on border.color { ColorAnimation { duration: Backend.systemMotionEnabled ? 140 : 0 } }
+                            border.color: page.selectedTheme === modelData.id ? Theme.currentTheme.colors.primaryColor : Theme.currentTheme.colors.cardBorderColor
                         }
-                        contentItem: Rectangle {
-                            anchors.fill: parent
-                            anchors.margins: page.selectedTheme === modelData.id ? 3 : 1
-                            radius: 6
-                            clip: true
-                            Image {
-                                anchors.fill: parent
-                                source: Backend.themePreviewUrl(modelData.id)
-                                fillMode: Image.PreserveAspectCrop
-                                asynchronous: true
-                            }
-                            Rectangle {
-                                anchors.left: parent.left
-                                anchors.right: parent.right
-                                anchors.bottom: parent.bottom
-                                height: 38
-                                color: "#88000000"
-                            }
+                        contentItem: ColumnLayout {
+                            spacing: 8
+                            IslandThemePreview { Layout.fillWidth: true; Layout.preferredHeight: 96; themeId: modelData.id }
                             Text {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 10
-                                anchors.right: parent.right
-                                anchors.rightMargin: 8
-                                anchors.bottom: parent.bottom
-                                anchors.bottomMargin: 9
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: 34
                                 text: modelData.label
-                                color: "white"
-                                typography: Typography.BodyStrong
-                                elide: Text.ElideRight
+                                typography: Typography.Caption
+                                color: Theme.currentTheme.colors.textColor
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                wrapMode: Text.Wrap
                             }
                         }
                     }
@@ -99,39 +87,39 @@ FluentPage {
             }
             RowLayout { Layout.fillWidth: true
                 Text { Layout.fillWidth: true
-                text: "透明度"
+                text: I18n.t("透明度")
                 typography: Typography.BodyStrong }
                 Slider { id: opacityControl
-                Layout.preferredWidth: 300
+                Layout.preferredWidth: Math.min(300,page.width * 0.42)
                 from: 0.35
                 to: 1
                 stepSize: 0.05
                 onPressedChanged: if (!pressed && !page.loading) Backend.setSetting("islandOpacity", value) }
-                Text { text: Math.round(opacityControl.value * 100) + "%"
+                Text { Layout.preferredWidth: 46; horizontalAlignment: Text.AlignRight; text: Math.round(opacityControl.value * 100) + "%"
                 typography: Typography.Caption } }
             RowLayout { Layout.fillWidth: true
                 Text { Layout.fillWidth: true
-                text: "组件缩放"
+                text: I18n.t("组件缩放")
                 typography: Typography.BodyStrong }
                 Slider { id: scaleControl
-                Layout.preferredWidth: 300
+                Layout.preferredWidth: Math.min(300,page.width * 0.42)
                 from: 0.75
                 to: 1.35
                 stepSize: 0.05
                 onPressedChanged: if (!pressed && !page.loading) Backend.setSetting("islandScale", value) }
-                Text { text: Math.round(scaleControl.value * 100) + "%"
+                Text { Layout.preferredWidth: 46; horizontalAlignment: Text.AlignRight; text: Math.round(scaleControl.value * 100) + "%"
                 typography: Typography.Caption } }
             RowLayout { Layout.fillWidth: true
                 Text { Layout.fillWidth: true
-                text: "启动位置"
+                text: I18n.t("启动位置")
                 typography: Typography.BodyStrong }
                 ComboBox { id: anchor
                 Layout.preferredWidth: 180
-                model: ["左上", "顶部中央", "右上", "左下", "底部中央", "右下"]
+                model: [I18n.t("左上"), I18n.t("顶部中央"), I18n.t("右上"), I18n.t("左下"), I18n.t("底部中央"), I18n.t("右下")]
                 onActivated: if (!page.loading) Backend.setSetting("islandAnchor", ["top_left", "top_center", "top_right", "bottom_left", "bottom_center", "bottom_right"][currentIndex]) } }
             RowLayout { Layout.fillWidth: true
                 Text { Layout.fillWidth: true
-                text: "光影效果"
+                text: I18n.t("光影效果")
                 typography: Typography.BodyStrong }
                 Switch { id: lighting
                 onClicked: if (!page.loading) Backend.setSetting("islandLightingEffect", checked) } }

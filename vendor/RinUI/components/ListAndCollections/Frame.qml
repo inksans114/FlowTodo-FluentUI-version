@@ -28,7 +28,7 @@ Frame {
     background: Rectangle {
         id: background
         anchors.fill: parent
-        radius: Theme.currentTheme.appearance.smallRadius
+        radius: Theme.currentTheme.appearance.cardRadius
         // -1 表示跟随统一 radius；显式 0/正数用于分角圆角（HiDPI 友好，无需 OpacityMask）
         topLeftRadius: root.topLeftRadius < 0 ? radius : root.topLeftRadius
         topRightRadius: root.topRightRadius < 0 ? radius : root.topRightRadius

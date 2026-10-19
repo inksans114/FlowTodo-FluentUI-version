@@ -2,13 +2,14 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
+import "../i18n"
 
 Dialog {
     id: root
     objectName: "FactoryResetDialog"
     signal resetConfirmed()
 
-    title: "恢复出厂设置？"
+    title: I18n.t("恢复出厂设置？")
     modal: true
     standardButtons: Dialog.Ok | Dialog.Cancel
 
@@ -17,9 +18,9 @@ Dialog {
         var confirmButton = footer.standardButton(Dialog.Ok)
         var cancelButton = footer.standardButton(Dialog.Cancel)
         if (confirmButton)
-            confirmButton.text = "清除所有数据"
+            confirmButton.text = I18n.t("清除所有数据")
         if (cancelButton)
-            cancelButton.text = "取消"
+            cancelButton.text = I18n.t("取消")
     }
 
     contentItem: ColumnLayout {
@@ -39,14 +40,14 @@ Dialog {
             }
             Text {
                 Layout.fillWidth: true
-                text: "将清除任务、日程、统计、成就、AI 计划、便签和相关记录。此操作无法撤销。"
+                text: I18n.t("将清除任务、日程、统计、成就、AI 计划、便签和相关记录。此操作无法撤销。")
                 typography: Typography.Body
                 wrapMode: Text.Wrap
             }
         }
         Text {
             Layout.fillWidth: true
-            text: "应用设置会恢复默认。清除后无法恢复。"
+            text: I18n.t("应用设置会恢复默认。清除后无法恢复。")
             typography: Typography.Caption
             color: Theme.currentTheme.colors.textSecondaryColor
             wrapMode: Text.Wrap

@@ -1,4 +1,5 @@
 import QtQuick
+import "i18n"
 
 Rectangle {
     id: root
@@ -6,10 +7,10 @@ Rectangle {
     height: 220
     color: "transparent"
 
-    property string taskTitle: "准备开始"
+    property string taskTitle: I18n.t("准备开始")
     property string taskSubtitle: ""
-    property string phaseLabel: "阶段 1/1"
-    property string statusLabel: "专注中"
+    property string phaseLabel: I18n.t("阶段 1/1")
+    property string statusLabel: I18n.t("专注中")
     property string taskType: "focus"
     property string themeName: "material"
     property string customAccent: ""
@@ -22,6 +23,12 @@ Rectangle {
     property bool miniMode: false
     property bool guardVisible: false
     property bool finished: false
+    property bool awaitingChoice: false
+    property bool guidedMode: false
+    property bool guidedBusy: false
+    property bool guidedClarification: false
+    property string guidedError: ""
+    property bool flowMode: false
     property bool exitCancelled: false
     property bool lightingEffect: true
     property real islandScale: 1.0
@@ -54,10 +61,12 @@ Rectangle {
     signal pauseRequested()
     signal resumeRequested()
     signal cancelRequested()
+    signal followupRequested(string action)
     signal dragStarted()
     signal dragMoved(int deltaX, int deltaY)
     signal dragFinished()
     signal displayModeChanged(bool miniMode)
+    signal hitRegionChanged()
     signal exitFinished()
 
     function formatTime(value) {
@@ -89,6 +98,8 @@ Rectangle {
         }
     }
     onTaskRevisionChanged: if (taskRevision > 0) pageFlip.restart()
+    onMiniModeChanged: hitRegionChanged()
+    onGuardVisibleChanged: hitRegionChanged()
 
     Item {
         id: islandDeck
@@ -132,7 +143,9 @@ Rectangle {
                     anchors.topMargin: 18; anchors.bottomMargin: 15
                     spacing: 5
                     Text {
-                        text: root.phaseLabel + "  ·  " + root.statusLabel
+                        text: root.guidedMode && root.guidedBusy ? I18n.t("正在准备下一段…")
+                            : root.guidedMode && root.guidedError.length ? root.guidedError
+                            : root.phaseLabel + "  ·  " + root.statusLabel
                         color: root.mutedColor; font.family: "Microsoft YaHei UI"
                         font.pixelSize: 13; font.weight: Font.DemiBold
                         elide: Text.ElideRight; width: parent.width
@@ -152,16 +165,35 @@ Rectangle {
                     anchors.right: parent.right; anchors.rightMargin: 17
                     anchors.bottom: parent.bottom; anchors.bottomMargin: 14
                     spacing: 8; z: 2
+                    visible: !root.awaitingChoice
                     Rectangle {
                         width: 48; height: 26; radius: 13; color: root.accentColor
-                        Text { anchors.centerIn: parent; text: root.running ? "暂停" : "继续"; color: "white"; font.family: "Microsoft YaHei UI"; font.pixelSize: 11 }
+                        Text { anchors.centerIn: parent; text: root.running ? I18n.t("暂停") : I18n.t("继续"); color: "white"; font.family: "Microsoft YaHei UI"; font.pixelSize: 11 }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.running ? root.pauseRequested() : root.resumeRequested() }
                     }
                     Rectangle {
                         width: 42; height: 26; radius: 13
                         color: root.themeName === "cw1" || root.themeName === "win10" ? "#53323a" : "#ffe4e2"
-                        Text { anchors.centerIn: parent; text: "结束"; color: root.themeName === "cw1" || root.themeName === "win10" ? "#ffd9d4" : "#9e3030"; font.family: "Microsoft YaHei UI"; font.pixelSize: 11 }
+                        Text { anchors.centerIn: parent; text: I18n.t("结束"); color: root.themeName === "cw1" || root.themeName === "win10" ? "#ffd9d4" : "#9e3030"; font.family: "Microsoft YaHei UI"; font.pixelSize: 11 }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.cancelRequested() }
+                    }
+                }
+                Row {
+                    visible: root.awaitingChoice
+                    anchors.right: parent.right; anchors.rightMargin: 12
+                    anchors.bottom: parent.bottom; anchors.bottomMargin: 14
+                    spacing: 6; z: 2
+                    Repeater {
+                        model: root.flowMode ? [{label: I18n.t("下一步"), action: "flow"}] : root.guidedMode ? [{label: I18n.t("休息"), action: "break"}, {label: root.guidedBusy ? I18n.t("准备中") : root.guidedClarification ? I18n.t("补充进度") : I18n.t("下一步"), action: "focus"}, {label: I18n.t("回场景"), action: "studio"}] : [{label: I18n.t("休息"), action: "break"}, {label: I18n.t("再一轮"), action: "focus"}, {label: I18n.t("收起"), action: "dismiss"}]
+                        delegate: Rectangle {
+                            required property var modelData
+                            objectName: "followup_" + modelData.action
+                            enabled: !root.guidedMode || modelData.action !== "focus" || !root.guidedBusy
+                            opacity: enabled ? 1 : 0.55
+                            width: 54; height: 26; radius: 13; color: root.accentColor
+                            Text { anchors.centerIn: parent; text: modelData.label; color: "white"; font.pixelSize: 11 }
+                            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.followupRequested(modelData.action) }
+                        }
                     }
                 }
             }
@@ -171,8 +203,8 @@ Rectangle {
                 border.width: root.themeName === "win10" ? 1 : 0; border.color: "#55ffffff"
                 Column {
                     anchors.centerIn: parent; spacing: 5
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: "距离结束还有"; color: root.mutedColor; font.family: "Microsoft YaHei UI"; font.pixelSize: 13; font.weight: Font.DemiBold }
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.formatTime(root.remainingSeconds); color: root.textColor; font.family: "Microsoft YaHei UI"; font.pixelSize: 31; font.weight: Font.Bold }
+                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.awaitingChoice ? I18n.t("接下来由你选择") : I18n.t("距离结束还有"); color: root.mutedColor; font.family: "Microsoft YaHei UI"; font.pixelSize: 13; font.weight: Font.DemiBold }
+                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: root.awaitingChoice ? I18n.t("已结束") : root.formatTime(root.remainingSeconds); color: root.textColor; font.family: "Microsoft YaHei UI"; font.pixelSize: 31; font.weight: Font.Bold }
                     Rectangle {
                         width: 88; height: 5; radius: 3; color: "#20000000"
                         Rectangle {
@@ -286,7 +318,7 @@ Rectangle {
             anchors.centerIn: parent; width: 190; height: 46; radius: 23
             color: root.exitCancelled ? "#a5414d" : root.accentColor
             visible: root.finished; opacity: root.finished ? 1 : 0
-            Text { anchors.centerIn: parent; text: root.exitCancelled ? "专注已结束" : "全部任务完成"; color: "white"; font.family: "Microsoft YaHei UI"; font.pixelSize: 14; font.weight: Font.DemiBold }
+            Text { anchors.centerIn: parent; text: root.exitCancelled ? I18n.t("专注已结束") : I18n.t("全部任务完成"); color: "white"; font.family: "Microsoft YaHei UI"; font.pixelSize: 14; font.weight: Font.DemiBold }
         }
         MouseArea {
             id: dragArea
@@ -358,7 +390,7 @@ Rectangle {
     }
     SequentialAnimation {
         id: exitAnimation
-        PauseAnimation { duration: 1200 }
+        PauseAnimation { duration: 4200 }
         ParallelAnimation {
             NumberAnimation { target: root; property: "entranceOpacity"; to: 0; duration: 220; easing.type: Easing.InQuad }
             NumberAnimation { target: root; property: "entranceScale"; to: 0.9; duration: 250; easing.type: Easing.InQuad }

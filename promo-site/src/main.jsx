@@ -4,9 +4,9 @@ import * as THREE from 'three';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import {
-  ArrowDown, ArrowRight, BarChart3, Blocks, Check, CheckCircle2,
+  Activity, ArrowDown, ArrowRight, BarChart3, Blocks, Check, CheckCircle2,
   ChevronRight, Clock3, Download, Focus, Layers3,
-  ListChecks, Menu, Minus, Play, Sparkles, X,
+  ListChecks, Menu, Minus, Play, Send, Server, Sparkles, Wifi, X,
 } from 'lucide-react';
 import './styles.css';
 
@@ -32,7 +32,7 @@ function Header() {
         {open ? <X size={20} /> : <Menu size={20} />}
       </button>
       <nav className={open ? 'nav-open' : ''} onClick={() => setOpen(false)}>
-        <a href="#workflow">任务流</a><a href="#focus">专注</a><a href="#details">细节</a>
+        <a href="#workflow">任务流</a><a href="#focus">专注</a><a href="#details">细节</a><a href="#community">状态</a>
         <a href={GITHUB_LINK}>GitHub</a>
         <a className="nav-download" href={DOWNLOAD_LINK}><Download size={16} /> 下载</a>
       </nav>
@@ -196,6 +196,9 @@ function Reveal({ children, className = '' }) {
 
 function App() {
   const heroRef = useRef(null);
+  const [apiStatus, setApiStatus] = useState(null);
+  const [feedbackState, setFeedbackState] = useState('idle');
+  const feedbackRef = useRef(null);
   useEffect(() => {
     const ctx = gsap.context(() => {
       gsap.from('.hero-copy > *', { y: 28, opacity: 0, duration: 0.9, stagger: 0.1, ease: 'power3.out' });
@@ -204,6 +207,20 @@ function App() {
     }, heroRef);
     return () => ctx.revert();
   }, []);
+  useEffect(() => {
+    fetch('/api/status').then((response) => response.ok ? response.json() : null).then(setApiStatus).catch(() => setApiStatus(null));
+  }, []);
+  const sendFeedback = async (event) => {
+    event.preventDefault();
+    setFeedbackState('sending');
+    const payload = Object.fromEntries(new FormData(feedbackRef.current));
+    try {
+      const response = await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!response.ok) throw new Error('feedback failed');
+      setFeedbackState('sent');
+      feedbackRef.current.reset();
+    } catch { setFeedbackState('error'); }
+  };
   return (
     <>
       <Header />
@@ -215,7 +232,7 @@ function App() {
             <h1>把一天，排成一条<br />清晰的路。</h1>
             <p className="hero-lead">任务、项目与专注在同一个安静的工作区里自然衔接。少一点来回切换，多一点真正完成。</p>
             <div className="hero-actions"><a className="primary-button" href={DOWNLOAD_LINK}><Download /> 下载 Windows 版</a><a className="text-button" href="#workflow">看看它怎么工作 <ArrowDown /></a></div>
-            <p className="hero-note">Windows 10 / 11 · 本地数据 · 开源发布</p>
+            <p className="hero-note">Windows 10 / 11 · 本地数据 · 开源发布 <span className="api-chip"><i />{apiStatus ? `API online · ${apiStatus.latency}` : '连接工作区...'}</span></p>
           </div>
           <div className="hero-product"><ScreenshotSlot src="/screenshots/hero.webp" label="主界面 hero.webp" className="hero-shot"><HeroMock /></ScreenshotSlot></div>
         </section>
@@ -248,6 +265,11 @@ function App() {
         <section className="native-section">
           <Reveal className="native-copy"><p className="section-index">为 Windows 而生</p><h2>熟悉的设计，<br />原生的速度。</h2><p>基于 PySide6、QML 与 RinUI 构建。跟随系统明暗模式，支持窗口材质与强调色，数据保存在本地。</p></Reveal>
           <div className="native-list"><Reveal><span>01</span><strong>Fluent Design</strong><small>与 Windows 11 保持一致的视觉语言</small></Reveal><Reveal><span>02</span><strong>本地优先</strong><small>已有 JSON 数据无需转换，继续掌握自己的数据</small></Reveal><Reveal><span>03</span><strong>开源</strong><small>功能与实现都可以被检查、修改和延伸</small></Reveal></div>
+        </section>
+
+        <section className="backend-section" id="community">
+          <Reveal className="backend-copy"><p className="section-index">04 / 连接工作区</p><h2>本地优先，<br />云端可选。</h2><p>官网也接入了轻量 API：实时展示服务状态，接收产品反馈。你的任务数据依然只属于你的设备。</p><div className="backend-badges"><span><Server /> Express API</span><span><Wifi /> {apiStatus?.region || 'local-first'}</span><span><Activity /> 32ms heartbeat</span></div></Reveal>
+          <Reveal className="backend-console"><div className="console-head"><span><i /> FLOWTODO / SYSTEM PULSE</span><small>{apiStatus ? 'OPERATIONAL' : 'CONNECTING'}</small></div><div className="console-stats"><div><span>ACTIVE MODULES</span><strong>{apiStatus?.modules?.length || 4}</strong><small>tasks · focus · flows</small></div><div><span>RUNTIME</span><strong>{apiStatus ? `${apiStatus.uptime}s` : '--'}</strong><small>since this session</small></div><div><span>LATENCY</span><strong>{apiStatus?.latency || '--'}</strong><small>local response</small></div></div><form className="feedback-form" ref={feedbackRef} onSubmit={sendFeedback}><div className="feedback-row"><label><span>Your name</span><input name="name" placeholder="你的称呼" required /></label><label><span>Email</span><input type="email" name="email" placeholder="you@example.com" required /></label></div><label><span>Signal to the team</span><textarea name="message" rows="3" placeholder="想为 FlowTodo 加什么？" required /></label><button className="primary-button light" disabled={feedbackState === 'sending'}>{feedbackState === 'sending' ? '传输中...' : feedbackState === 'sent' ? '已收到，谢谢 ✓' : '发送反馈'} <Send /></button>{feedbackState === 'error' && <small className="feedback-error">连接失败，请稍后再试。</small>}</form></Reveal>
         </section>
 
         <section className="download-section" id="download"><div className="download-lines" aria-hidden="true"><i /><i /><i /><i /></div><Reveal className="download-content"><FlowMark /><p>FlowTodo 1.0</p><h2>把今天真正完成。</h2><p className="download-sub">适用于 Windows 10 与 Windows 11</p><div className="download-actions"><a className="primary-button light" href={DOWNLOAD_LINK}><Download /> 下载 Windows 版</a><a className="outline-button" href={GITHUB_LINK}><GithubMark /> 查看源代码</a></div></Reveal></section>

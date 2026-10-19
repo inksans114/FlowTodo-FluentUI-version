@@ -115,7 +115,7 @@ Popup {
             }
         }
 
-        layer.enabled: true
+        layer.enabled: GraphicsInfo.api !== GraphicsInfo.Software && GraphicsInfo.api !== GraphicsInfo.Unknown
         layer.effect: Shadow {
             style: "flyout"
             source: background

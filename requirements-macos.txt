@@ -1,0 +1,11 @@
+# Apple Silicon test build; local patched RinUI is bundled from vendor/.
+PySide6==6.11.1
+darkdetect>=0.8,<0.9
+pyobjc-framework-Cocoa>=11,<13
+Pillow>=11.2,<13
+cryptography>=42,<46
+qrcode>=7.4,<9
+mediapipe==0.10.35
+opencv-python-headless>=4.11,<5
+PyInstaller>=6.20,<7
+pyinstaller-hooks-contrib>=2026.3

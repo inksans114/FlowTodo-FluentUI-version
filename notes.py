@@ -16,6 +16,8 @@ from typing import Any
 from PySide6.QtCore import QObject, Property, QUrl, Signal, Slot
 from PySide6.QtQml import QQmlComponent
 
+from i18n_runtime import tr
+
 
 class NoteManager(QObject):
     CAPSULE_WIDTH = 128
@@ -66,7 +68,7 @@ class NoteManager(QObject):
     def _normalize(self, source: dict[str, Any]) -> dict[str, Any]:
         note = dict(source)
         note["id"] = str(note.get("id") or uuid.uuid4().hex)
-        note["title"] = str(note.get("title") or "未命名便签")
+        note["title"] = str(note.get("title") or tr("未命名便签"))
         note["content"] = str(note.get("content") or "")
         note["x"] = self._number(note.get("x"), 120)
         note["y"] = self._number(note.get("y"), 120)
@@ -184,6 +186,7 @@ class NoteManager(QObject):
                     self._create_window(note)
                 else:
                     self._apply_presentation(note)
+                    self._windows[note["id"]].show()
             elif note["id"] in self._windows:
                 self._windows[note["id"]].hide()
         self._arrange_capsules()
@@ -233,7 +236,7 @@ class NoteManager(QObject):
     def createNote(self) -> str:
         settings = self._settings()
         note = self._normalize({
-            "title": "新便签",
+            "title": tr("新便签"),
             "content": "",
             "width": settings["notesDefaultWidth"],
             "height": settings["notesDefaultHeight"],
@@ -372,7 +375,7 @@ class NoteManager(QObject):
         note = self._note(note_id)
         if not note:
             return
-        note["title"] = str(title or "未命名便签")
+        note["title"] = str(title or tr("未命名便签"))
         note["content"] = str(content or "")
         self._save()
         self.notesChanged.emit()

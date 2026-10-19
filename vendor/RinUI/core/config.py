@@ -1,4 +1,5 @@
 import json
+import os
 import platform
 import sys
 from enum import Enum
@@ -39,7 +40,7 @@ def resource_path(relative_path):
 rinui_core_path = Path(__file__).resolve().parent  # RinUI/core 目录
 
 BASE_DIR = Path.cwd().resolve()
-PATH = BASE_DIR / "RinUI" / "config"
+PATH = Path(os.environ["FLOWTODO_RINUI_CONFIG_DIR"]) if os.environ.get("FLOWTODO_RINUI_CONFIG_DIR") else BASE_DIR / "RinUI" / "config"
 RINUI_PATH = resource_path(
     rinui_core_path.parent.parent
 )  # 使用 resource_path 处理路径，等同 ../../

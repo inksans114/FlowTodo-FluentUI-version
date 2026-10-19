@@ -24,6 +24,7 @@ Page {
     // StackView.onRemoved: destroy()
     spacing: 14
     property alias contentSpacing: container.spacing
+    property alias scrollPosition: pageFlickable.contentY
 
     // 头部 / Header //
     header: Item {
@@ -56,20 +57,38 @@ Page {
     background: Item {}
 
     Flickable {
+        id: pageFlickable
         anchors.fill: parent
         clip: true
         ScrollBar.vertical: ScrollBar {
-            // anchors.top: parent.top
-            // anchors.topMargin: fluentPage.header ? fluentPage.header.height : 0
-            // // anchors.right: parent.right
-            // // anchors.bottom: parent.bottom
-            // anchors.bottomMargin: fluentPage.footer ? fluentPage.footer.height : 0
+            id: verticalScrollBar
+            width: 6
+            policy: ScrollBar.AsNeeded
+            opacity: verticalScrollBar.hovered || verticalScrollBar.active ? 0.82 : 0.28
+            Behavior on opacity { NumberAnimation { duration: 140 } }
+            contentItem: Rectangle {
+                implicitWidth: 6
+                radius: 3
+                color: verticalScrollBar.hovered || verticalScrollBar.active
+                    ? Theme.currentTheme.colors.primaryColor
+                    : Theme.currentTheme.colors.controlStrongColor
+            }
+            background: Item {}
         }
         ScrollBar.horizontal: ScrollBar {
-            // anchors.left: parent.left
-            // anchors.right: parent.right
-            // anchors.bottom: parent.bottom
-            // anchors.bottomMargin: fluentPage.footer ? fluentPage.footer.height : 0
+            id: horizontalScrollBar
+            height: 6
+            policy: ScrollBar.AsNeeded
+            opacity: horizontalScrollBar.hovered || horizontalScrollBar.active ? 0.82 : 0.28
+            Behavior on opacity { NumberAnimation { duration: 140 } }
+            contentItem: Rectangle {
+                implicitHeight: 6
+                radius: 3
+                color: horizontalScrollBar.hovered || horizontalScrollBar.active
+                    ? Theme.currentTheme.colors.primaryColor
+                    : Theme.currentTheme.colors.controlStrongColor
+            }
+            background: Item {}
         }
         contentHeight: container.height + 18 + headerContainer.height + 24
 

@@ -13,8 +13,14 @@ ENV/
 # ===== 构建产物 =====
 build/
 dist/
+dist-pyinstaller/
 *.egg-info/
 *.spec
+!packaging/macos/FlowTodo.spec
+!packaging/windows/FlowTodo.spec
+dist-store/
+work/store-sdk/
+.venv-macos/
 
 # ===== 日志 =====
 *.log
@@ -44,3 +50,22 @@ desktop.ini
 # ===== promo-site 依赖与构建产物 =====
 promo-site/node_modules/
 promo-site/dist/
+promo-site/build-check/
+work/acme-runtime/
+work/acme-account.vault
+
+# Local publication staging, private operations, and design experiments
+work/
+.pytest_cache/
+.zcode/
+.superdesign/
+export/
+export_log.txt
+.env
+.env.*
+!.env.example
+*.vault
+*.pem
+*.key
+*.sqlite
+*.sqlite-*

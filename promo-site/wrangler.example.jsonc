@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flowtodo-website",
+  "main": "cloud/worker.js",
+  "compatibility_date": "2026-10-11",
+  "workers_dev": true,
+  "routes": [{ "pattern": "app.cheemsdoge.xyz", "custom_domain": true }],
+  "assets": { "directory": "./dist", "binding": "ASSETS", "not_found_handling": "single-page-application", "run_worker_first": ["/api/*"] },
+  "vars": { "APP_ORIGIN": "https://app.cheemsdoge.xyz", "ADMIN_EMAIL": "owner@example.com", "STORAGE_MODE": "xiangyang-direct", "CLOUD_DIRECT_ENABLED": true, "AI_DIRECT_ENABLED": true, "NATIVE_LOGIN_ENABLED": true, "MANUAL_PAYMENTS_ENABLED": true, "OFFICIAL_AI_ENABLED": true, "OFFICIAL_AI_READY": true },
+  "d1_databases": [{ "binding": "DB", "database_name": "flowtodo-accounts", "database_id": "YOUR_D1_DATABASE_ID" }],
+  "triggers": { "crons": ["17 3 * * *"] },
+  "observability": { "enabled": false }
+}

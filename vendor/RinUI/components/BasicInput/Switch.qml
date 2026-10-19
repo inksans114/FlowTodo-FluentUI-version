@@ -8,7 +8,9 @@ Switch {
     id: root
 
     // width: 40
-    implicitHeight: 20
+    implicitWidth: contentItem.implicitWidth
+    implicitHeight: Math.max(20, contentItem.implicitHeight)
+    padding: 0
 
     property color backgroundColor: Theme.currentTheme.colors.controlSecondaryColor
     property color primaryColor: Theme.currentTheme.colors.primaryColor
@@ -26,6 +28,7 @@ Switch {
         id: background
         width: 40
         height: 20
+        y: (root.height - height) / 2
         radius: height / 2
         color: checked ? primaryColor :
             hovered ? Theme.currentTheme.colors.controlTertiaryColor : backgroundColor
@@ -58,12 +61,13 @@ Switch {
             : visualPosition * (background.width - 8 - width) + 4
     }
 
-    contentItem: Row {
-        anchors.fill: parent
-        spacing: 12
-        Rectangle { width: 40; height: 20; color: "transparent" }  // 占位符
-
+    contentItem: Item {
+        implicitWidth: 40 + (switchLabel.text.length ? 12 + switchLabel.implicitWidth : 0)
+        implicitHeight: Math.max(20, switchLabel.implicitHeight)
         Text {
+            id: switchLabel
+            x: 52
+            anchors.verticalCenter: parent.verticalCenter
             text: (root.text === '') ? root.checked ? checkedText : uncheckedText : root.text
         }
     }

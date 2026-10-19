@@ -1,5 +1,4 @@
 import QtQuick 2.15
-import Qt5Compat.GraphicalEffects
 import QtQuick.Controls.Basic 2.15
 import "../../themes"
 import "../../components"
@@ -45,21 +44,13 @@ TextArea {
             Theme.currentTheme.colors.controlBorderColor
 
         // 仅裁切背景指示条；文字在 contentItem 直接绘制
-        layer.enabled: true
-        layer.smooth: false
-        layer.mipmap: false
-        layer.effect: OpacityMask {
-            maskSource: Rectangle {
-                width: background.width
-                height: background.height
-                radius: background.radius
-            }
-        }
+        // Draw the rounded surface directly on every renderer.
+
 
         // 底部指示器 / indicator //
         Rectangle {
             id: indicator
-            width: parent.width
+            width: Math.max(0, parent.width - background.radius * 2)
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             radius: 999

@@ -1,6 +1,5 @@
 import QtQuick 2.15
 import QtQuick.Controls.Basic 2.15
-import Qt5Compat.GraphicalEffects
 import "../../themes"
 import "../../components"
 
@@ -43,21 +42,13 @@ ComboBox {
         border.color: Theme.currentTheme.colors.controlBorderColor
 
         // 仅裁切底部指示条；smooth:false 避免 HiDPI 下边缘发糊
-        layer.enabled: true
-        layer.smooth: false
-        layer.mipmap: false
-        layer.effect: OpacityMask {
-            maskSource: Rectangle {
-                width: background.width
-                height: background.height
-                radius: background.radius
-            }
-        }
+        // Draw the rounded surface directly on every renderer.
+
 
         // 底部border
         Rectangle {
             id: indicator
-            width: parent.width
+            width: Math.max(0, parent.width - background.radius * 2)
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             height: Theme.currentTheme.appearance.borderWidth
@@ -125,6 +116,7 @@ ComboBox {
         id: menu
         width: root.width
         model: root.model
+        textRole: root.textRole
         currentIndex: root.currentIndex
 
         function handleItemSelected(index) {

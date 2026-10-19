@@ -2,15 +2,16 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
+import "../i18n"
 
 Dialog {
     id: root
     objectName: "DeleteConfirmDialog"
-    property string itemType: "内容"
+    property string itemType: I18n.t("内容")
     property string itemName: ""
     signal deleteConfirmed()
 
-    title: "删除" + itemType + "？"
+    title: I18n.t("删除") + itemType + "？"
     modal: true
     standardButtons: Dialog.Ok | Dialog.Cancel
 
@@ -19,9 +20,9 @@ Dialog {
         var confirmButton = footer.standardButton(Dialog.Ok)
         var cancelButton = footer.standardButton(Dialog.Cancel)
         if (confirmButton)
-            confirmButton.text = "删除"
+            confirmButton.text = I18n.t("删除")
         if (cancelButton)
-            cancelButton.text = "取消"
+            cancelButton.text = I18n.t("取消")
     }
 
     contentItem: ColumnLayout {
@@ -41,14 +42,14 @@ Dialog {
             }
             Text {
                 Layout.fillWidth: true
-                text: "“" + String(root.itemName || "未命名") + "”"
+                text: "“" + String(root.itemName || I18n.t("未命名")) + "”"
                 typography: Typography.BodyStrong
                 wrapMode: Text.Wrap
             }
         }
         Text {
             Layout.fillWidth: true
-            text: "删除后无法恢复。"
+            text: I18n.t("删除后无法恢复。")
             typography: Typography.Caption
             color: Theme.currentTheme.colors.textSecondaryColor
             wrapMode: Text.Wrap

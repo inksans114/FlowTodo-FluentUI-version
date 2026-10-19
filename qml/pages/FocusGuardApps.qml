@@ -2,15 +2,16 @@
 import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
+import "../i18n"
 
 FluentPage {
     id: page
-    title: "应用拦截"
-    wrapperWidth: 880
-    horizontalPadding: 36
-    contentSpacing: 10
+    title: I18n.t("应用拦截")
+    wrapperWidth: 960
+    horizontalPadding: 32
+    contentSpacing: 18
     property string query: ""
-    property string returnLabel: "返回系统设置"
+    property string returnLabel: I18n.t("返回系统设置")
     ListModel { id: appModel }
     function nav() { var item = page; while (item) { if (item.objectName === "MainNavigationView") return item; item = item.parent } return null }
     function load() {
@@ -44,15 +45,15 @@ FluentPage {
                 color: Theme.currentTheme.colors.textSecondaryColor }
                 Item { Layout.fillWidth: true } }
     Text { Layout.fillWidth: true
-                text: "开启沉浸拦截时，选中的程序不会触发提醒；系统关键程序默认允许。"
+                text: I18n.t("开启沉浸拦截时，选中的程序不会触发提醒；系统关键程序默认允许。")
                 typography: Typography.Body
                 color: Theme.currentTheme.colors.textSecondaryColor
                 wrapMode: Text.Wrap }
     RowLayout { Layout.fillWidth: true
                 TextField { Layout.fillWidth: true
-                placeholderText: "搜索应用"
+                placeholderText: I18n.t("搜索应用")
                 onTextChanged: page.query = text.trim().toLowerCase() }
-                Button { text: "恢复系统默认"
+                Button { text: I18n.t("恢复系统默认")
                 icon.name: "ic_fluent_arrow_reset_20_regular"
                 onClicked: { for (var i = 0; i < appModel.count; i++) appModel.setProperty(i, "selected", Boolean(appModel.get(i).system)) } } }
     Frame { Layout.fillWidth: true
@@ -87,7 +88,7 @@ FluentPage {
                 color: Theme.currentTheme.colors.textSecondaryColor
                 elide: Text.ElideMiddle } }
                 Text { visible: Boolean(model.system)
-                text: "系统"
+                text: I18n.t("系统")
                 typography: Typography.Caption
                 color: Theme.currentTheme.colors.textSecondaryColor } }
                 } }
@@ -96,9 +97,9 @@ FluentPage {
     }
     RowLayout { Layout.fillWidth: true
                 Item { Layout.fillWidth: true }
-                Button { text: "取消"
+                Button { text: I18n.t("取消")
                 onClicked: page.goBack() }
-                Button { text: "保存允许列表"
+                Button { text: I18n.t("保存允许列表")
                 highlighted: true
                 icon.name: "ic_fluent_save_20_regular"
                 onClicked: page.save() } }
