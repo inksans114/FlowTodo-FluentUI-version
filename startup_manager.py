@@ -69,8 +69,71 @@ def startup_directory():
 
 def _shell():
     # Lazy Windows import also keeps macOS builds independent of pywin32.
-    import win32com.client
-    return win32com.client.Dispatch("WScript.Shell")
+    return _UnicodeShortcutShell()
+
+
+class _UnicodeShortcutShell:
+    def CreateShortcut(self, path):
+        return _UnicodeShortcut(path)
+
+
+class _UnicodeShortcut:
+    """Use IPersistFile's Unicode paths, independent of the system ANSI locale."""
+    def __init__(self, path):
+        import pythoncom
+        from win32com.shell import shell
+        self.path = Path(path)
+        self.link = pythoncom.CoCreateInstance(shell.CLSID_ShellLink, None,
+            pythoncom.CLSCTX_INPROC_SERVER, shell.IID_IShellLink)
+        self.persist = self.link.QueryInterface(pythoncom.IID_IPersistFile)
+        if self.path.is_file():
+            self.persist.Load(str(self.path))
+
+    @property
+    def TargetPath(self):
+        from win32com.shell import shell
+        return self.link.GetPath(shell.SLGP_RAWPATH)[0]
+
+    @TargetPath.setter
+    def TargetPath(self, value):
+        self.link.SetPath(value)
+
+    @property
+    def Arguments(self):
+        return self.link.GetArguments()
+
+    @Arguments.setter
+    def Arguments(self, value):
+        self.link.SetArguments(value)
+
+    @property
+    def WorkingDirectory(self):
+        return self.link.GetWorkingDirectory()
+
+    @WorkingDirectory.setter
+    def WorkingDirectory(self, value):
+        self.link.SetWorkingDirectory(value)
+
+    @property
+    def Description(self):
+        return self.link.GetDescription()
+
+    @Description.setter
+    def Description(self, value):
+        self.link.SetDescription(value)
+
+    @property
+    def IconLocation(self):
+        path, index = self.link.GetIconLocation()
+        return f'{path},{index}'
+
+    @IconLocation.setter
+    def IconLocation(self, value):
+        path, index = value.rsplit(',', 1)
+        self.link.SetIconLocation(path, int(index))
+
+    def Save(self):
+        self.persist.Save(str(self.path), True)
 
 
 def _same_path(left, right):

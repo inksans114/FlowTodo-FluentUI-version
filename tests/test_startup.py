@@ -16,7 +16,7 @@ class LaunchTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="flow-startup-")
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name) / "FlowTodo 中文 with spaces"
+        self.root = (Path(self.temp.name) / "FlowTodo 中文 with spaces").resolve()
         self.root.mkdir()
         (self.root / "app.py").touch()
         self.python = self.root / "venv" / "python.exe"

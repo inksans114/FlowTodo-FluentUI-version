@@ -102,7 +102,7 @@ python -m venv .venv
 
 需要本地监督功能时，再用同一 Python 环境执行 `tools/prepare_supervision_models.py` 准备模型。Windows 语音默认调用系统 `Win + H`，需要麦克风、系统权限与联网；可选云端转写可能产生服务费用。
 
-[详细功能说明](docs/FEATURE_GUIDE.md) · [构建与发布](RELEASING.md) · [macOS 测试版](docs/MACOS_BUILD.md) · [2.3.0 更新记录](docs/releases/2.3.0.md)
+[详细功能说明](docs/FEATURE_GUIDE.md) · [构建与发布](RELEASING.md) · [macOS 测试版](docs/MACOS_BUILD.md) · [2.3.1 更新记录](docs/releases/2.3.1.md)
 
 ## 一起把它做得更好
 
