@@ -34,12 +34,22 @@ open_page("UpdatePage.qml")
 assert find("automaticUpdateSwitch").property("checked") is False
 evaluate(find("automaticUpdateSwitch"), "checked = true; clicked()")
 assert json.loads(backend.updateJson)["autoDownload"]
-backend._update_manager._receive({"status": "downloading", "progress": 47, "availableVersion": "2.3.2", "busy": True})
+backend._update_manager._receive({"status": "downloading", "progress": 47, "progressKnown": True, "receivedBytes": 50*1048576, "totalBytes": 100*1048576, "bytesPerSecond": 1048576, "remainingSeconds": 50, "availableVersion": "2.3.3", "busy": True})
 backend._update_manager._busy = True; backend._update_manager.stateChanged.emit()
-QTest.qWait(80)
+QTest.qWait(250)
 assert find("updateDownloadProgress").property("value") == 47
 assert not find("checkUpdatesButton").property("enabled")
+assert "50.0 MB / 100.0 MB" in find("updateTransferDetails").property("text")
 root.grabWindow().save(str(output / "update-downloading.png"))
+backend._update_manager._receive({"progressKnown":False,"totalBytes":0})
+QTest.qWait(50)
+assert find("updateDownloadProgress").property("indeterminate")
+assert "%" not in find("updateProgressPercent").property("text")
+for state in ("verifying", "staging"):
+    backend._update_manager._receive({"status":state,"progress":90})
+    QTest.qWait(250)
+    assert not find("updateDownloadProgress").property("indeterminate")
+    assert find("updateDownloadProgress").isVisible()
 
 with patch("updater.is_packaged_build", return_value=True), patch("updater.windows_package_family", return_value=""), patch("updater.sys.platform", "win32"):
     backend._update_manager._busy = False

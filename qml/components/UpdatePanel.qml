@@ -10,12 +10,22 @@ ColumnLayout {
     property bool aboutMode: true
     property var update: { try { return JSON.parse(Backend.updateJson) } catch (error) { return ({}) } }
     readonly property bool compact: width < 740
-    readonly property bool working: update.status === "checking" || update.status === "downloading" || update.status === "installing"
+    readonly property bool working: ["checking", "downloading", "verifying", "staging", "installing"].indexOf(update.status) >= 0
+    readonly property bool measurable: ["downloading", "verifying", "staging"].indexOf(update.status) >= 0
+    function formatBytes(value) {
+        var bytes = Math.max(0, Number(value || 0))
+        if (bytes < 1024) return Math.round(bytes) + " B"
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + " KB"
+        if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + " MB"
+        return (bytes / 1073741824).toFixed(2) + " GB"
+    }
     readonly property string stateTitle: {
         switch (update.status) {
         case "checking": return I18n.t("正在检查更新")
         case "available": return I18n.t("发现新版本")
         case "downloading": return I18n.t("正在下载更新")
+        case "verifying": return I18n.t("正在校验更新包…")
+        case "staging": return I18n.t("正在解压并准备更新文件…")
         case "ready": return I18n.t("更新已准备好")
         case "installing": return I18n.t("正在准备安装")
         case "error": return I18n.t("更新暂未完成")
@@ -73,7 +83,7 @@ ColumnLayout {
                     Button {
                         objectName: "downloadUpdateButton"
                         visible: Boolean(panel.update.availableVersion) && !panel.update.ready && panel.update.canInstall
-                        text: panel.update.status === "downloading" ? I18n.t("正在下载更新") : I18n.t("下载更新")
+                        text: panel.update.status === "error" ? I18n.t("重试下载") : panel.measurable ? panel.stateTitle : I18n.t("下载更新")
                         highlighted: true; icon.name: "ic_fluent_arrow_download_20_regular"
                         enabled: !panel.update.busy
                         implicitHeight: 38; leftPadding: 22; rightPadding: 22
@@ -136,8 +146,27 @@ ColumnLayout {
                 wrapMode: Text.Wrap; font.pixelSize: 13; lineHeightMode: Text.ProportionalHeight; lineHeight: 1.45; color: ui.muted
             }
             Text { visible: Boolean(panel.update.availableVersion); text: I18n.t("可用版本") + "  " + String(panel.update.availableVersion || ""); font.pixelSize: 13; font.weight: Font.Medium; color: ui.accent }
-            ProgressBar { objectName: "updateDownloadProgress"; Layout.fillWidth: true; visible: panel.working; indeterminate: panel.update.status !== "downloading"; from: 0; to: 100; value: Number(panel.update.progress || 0) }
-            Text { visible: panel.update.status === "downloading"; text: Math.round(Number(panel.update.progress || 0)) + "%"; font.pixelSize: 12; color: ui.muted }
+            ProgressBar {
+                objectName: "updateDownloadProgress"; Layout.fillWidth: true
+                visible: panel.working || Boolean(panel.update.ready)
+                indeterminate: !panel.measurable && !panel.update.ready || panel.update.status === "downloading" && !panel.update.progressKnown
+                from: 0; to: 100; value: Math.max(0, Math.min(100, Number(panel.update.progress || 0)))
+                Accessible.name: panel.stateTitle
+                Behavior on value { NumberAnimation { duration: 180 } }
+            }
+            RowLayout {
+                Layout.fillWidth: true; visible: panel.measurable || Boolean(panel.update.ready)
+                Text { objectName: "updateProgressPercent"; text: panel.update.status === "downloading" && !panel.update.progressKnown ? I18n.t("正在获取文件大小…") : Math.round(Number(panel.update.progress || 0)) + "%"; font.pixelSize: 12; color: ui.muted; Layout.fillWidth: true; wrapMode: Text.Wrap }
+                Text { visible: panel.update.status === "downloading" && Number(panel.update.bytesPerSecond) > 0; text: panel.formatBytes(panel.update.bytesPerSecond) + "/s"; font.pixelSize: 12; color: ui.muted }
+            }
+            Text {
+                objectName: "updateTransferDetails"; Layout.fillWidth: true
+                visible: panel.update.status === "downloading"
+                text: (panel.update.processedBytes ? I18n.t("已处理") : I18n.t("已下载")) + " " + panel.formatBytes(panel.update.receivedBytes)
+                      + (Number(panel.update.totalBytes) > 0 ? " / " + panel.formatBytes(panel.update.totalBytes) : "")
+                      + (Number(panel.update.remainingSeconds) > 0 ? " · " + I18n.t("预计剩余 {seconds} 秒").replace("{seconds}", Math.ceil(Number(panel.update.remainingSeconds))) : "")
+                font.pixelSize: 12; color: ui.muted; wrapMode: Text.Wrap
+            }
             Frame {
                 objectName: "releaseNotesCard"
                 Layout.fillWidth: true; Layout.topMargin: 4; padding: 22

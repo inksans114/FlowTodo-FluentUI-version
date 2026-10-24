@@ -63,11 +63,13 @@ def changed_files(manifest,install_root):
   if not target.is_file() or target.stat().st_size!=item['size'] or file_hash(target)!=item['sha256']:changed.append(item)
  return changed
 
-def stage_manifest(manifest,install_root,stage_root,progress=lambda value:None,opener=urllib.request.urlopen):
+def stage_manifest(manifest,install_root,stage_root,progress=lambda value:None,opener=urllib.request.urlopen,detail=lambda done,total:None):
  stage=Path(stage_root);stage.mkdir(parents=True,exist_ok=True);changes=changed_files(manifest,install_root)
+ expected=sum(item['size'] for item in changes);completed=0;detail(0,expected)
  for index,item in enumerate(changes):
   target=destination(stage/'files',item['path']);target.parent.mkdir(parents=True,exist_ok=True)
-  if target.is_file() and target.stat().st_size==item['size'] and file_hash(target)==item['sha256']:continue
+  if target.is_file() and target.stat().st_size==item['size'] and file_hash(target)==item['sha256']:
+   completed+=item['size'];detail(completed,expected);progress(int(completed*99/max(1,expected)));continue
   request=urllib.request.Request(item['url'],headers={'User-Agent':'FlowTodo-Updater','Accept':'application/octet-stream'})
   temp=target.with_name(target.name+'.part');total=0
   try:
@@ -80,21 +82,23 @@ def stage_manifest(manifest,install_root,stage_root,progress=lambda value:None,o
       total+=len(chunk)
       if total>item['size']:raise ValueError('更新文件大小异常。')
       output.write(chunk)
+      detail(completed+total,expected);progress(int((completed+total)*99/max(1,expected)))
    if total!=item['size'] or file_hash(temp)!=item['sha256']:raise ValueError('更新文件校验失败，未应用。')
    os.replace(temp,target)
   finally:temp.unlink(missing_ok=True)
-  progress(int((index+1)*100/max(1,len(changes))))
+  completed+=item['size']
  plan={'format':'flowtodo-staged-v1','version':manifest['version'],'install_root':str(Path(install_root).resolve()),'files':changes}
  (stage/'plan.json').write_text(json.dumps(plan,ensure_ascii=False),encoding='utf-8');progress(100);return plan
 
-def stage_archive(archive_path,version,install_root,stage_root):
+def stage_archive(archive_path,version,install_root,stage_root,progress=lambda done,total:None):
  """A full ZIP fallback still replaces only files whose hashes differ."""
  with zipfile.ZipFile(archive_path) as archive:
   entries=[item for item in archive.infolist() if not item.is_dir()]
   if not entries:raise ValueError('更新包为空。')
   parts=[PurePosixPath(i.filename) for i in entries]
   prefix=parts[0].parts[0] if all(len(p.parts)>1 and p.parts[0]==parts[0].parts[0] for p in parts) else ''
-  total=0;seen=set();changed=[];stage=Path(stage_root)
+  total=0;seen=set();changed=[];stage=Path(stage_root);processed=0;expected=sum(item.file_size for item in entries)
+  progress(0,expected)
   for item in entries:
    if (item.external_attr>>16)&0o170000==0o120000:raise ValueError('更新包不能包含符号链接。')
    name=safe_relative(item.filename[len(prefix)+1:] if prefix else item.filename)
@@ -107,6 +111,7 @@ def stage_archive(archive_path,version,install_root,stage_root):
     for chunk in iter(lambda:stream.read(256*1024),b''):received+=len(chunk);digest.update(chunk);output.write(chunk)
    if received!=item.file_size:raise ValueError('更新包文件不完整。')
    original=destination(install_root,name)
+   processed+=received;progress(processed,expected)
    if original.is_file() and file_hash(original)==digest.hexdigest():target.unlink();continue
    changed.append({'path':name,'size':received,'sha256':digest.hexdigest()})
   if 'flowtodo.exe' not in seen:raise ValueError('更新包缺少 FlowTodo.exe。')

@@ -226,7 +226,7 @@ class UpdateManager(QObject):
     def __init__(self,parent=None,backend=None):
         super().__init__(parent);self.backend=backend;self._busy=False;self.release=None;self.manifest=None;self.asset=None;self._last_check=0;self._was_logged_in=False
         self.cache=Path(os.environ.get('LOCALAPPDATA') or tempfile.gettempdir())/'FlowTodo'/'updates'
-        self._view={'currentVersion':APP_VERSION,'availableVersion':'','status':'idle','message':'启动和登录后检查更新。','progress':0,'notes':'','source':'','packaged':is_packaged_build(),'ready':False}
+        self._view={'currentVersion':APP_VERSION,'availableVersion':'','status':'idle','message':'启动和登录后检查更新。','progress':0,'notes':'','source':'','packaged':is_packaged_build(),'ready':False,'receivedBytes':0,'totalBytes':0,'bytesPerSecond':0,'remainingSeconds':-1,'progressKnown':False,'processedBytes':False}
         self._received.connect(self._receive)
         self._installationFinished.connect(self._installation_finished)
         if backend:backend.accountChanged.connect(self._account_changed)
@@ -335,15 +335,18 @@ class UpdateManager(QObject):
     def _download_worker(self,tag):
         from update_files import stage_manifest,stage_archive
         if not is_newer_version(tag):return
-        stage=self.cache/safe_path_component(tag)/'stage';self._received.emit({'status':'downloading','progress':0,'message':'比对本机文件并下载更新，软件可以继续使用。'})
+        stage=self.cache/safe_path_component(tag)/'stage';self._received.emit({'status':'downloading','progress':0,'message':'比对本机文件并下载更新，软件可以继续使用。','receivedBytes':0,'totalBytes':0,'bytesPerSecond':0,'remainingSeconds':-1,'progressKnown':False,'processedBytes':bool(self.manifest)})
         progress=lambda n:self._received.emit({'progress':n})
-        if self.manifest:stage_manifest(self.manifest,Path(sys.executable).resolve().parent,stage,progress)
+        if self.manifest:stage_manifest(self.manifest,Path(sys.executable).resolve().parent,stage,progress,detail=self._transfer_reporter(processed=True))
         elif self.asset and Path(self.asset.name).suffix.lower()=='.zip':
-            archive=self._download_asset(self.asset,tag);stage_archive(archive,tag,Path(sys.executable).resolve().parent,stage)
+            archive=self._download_asset(self.asset,tag)
+            self._received.emit({'status':'staging','progress':90,'message':'正在解压并准备更新文件…','bytesPerSecond':0,'remainingSeconds':-1})
+            def staged(done,total):self._received.emit({'progress':90+min(9,int(done*9/max(1,total)))})
+            stage_archive(archive,tag,Path(sys.executable).resolve().parent,stage,progress=staged)
         else:raise ValueError('发布版本缺少可自动更新的清单或完整 ZIP 包，请从发布页手动安装。')
         self.cache.mkdir(parents=True,exist_ok=True);pending=self.cache/'pending.json';temporary=self.cache/'pending.part'
         temporary.write_text(json.dumps({'version':tag,'stage':str(stage)},ensure_ascii=False),encoding='utf-8');os.replace(temporary,pending)
-        self._received.emit({'status':'ready','ready':True,'progress':100,'message':'更新已下载，点击安装并重启后应用更新。'})
+        self._received.emit({'status':'ready','ready':True,'progress':100,'bytesPerSecond':0,'remainingSeconds':-1,'message':'更新已下载，点击安装并重启后应用更新。'})
         self.statusChanged.emit('success',tr('更新已准备好'),tr('可以继续使用，准备好后再安装并重启。'))
 
     def install_update(self):
@@ -368,6 +371,17 @@ class UpdateManager(QObject):
             self.quitRequested.emit()
         else:
             self._received.emit({'status':'error','message':tr('安装程序未能启动，软件将继续运行。')+' '+message})
+    def _transfer_reporter(self,processed=False):
+        started=time.monotonic();last=[-1.0]
+        def report(done,total,force=False):
+            now=time.monotonic();elapsed=max(now-started,0.001)
+            if not force and last[0]>=0 and now-last[0]<0.15 and done!=total:return
+            last[0]=now;speed=done/elapsed
+            self._received.emit({'receivedBytes':done,'totalBytes':total,'progressKnown':total>0,
+                                'bytesPerSecond':speed,'remainingSeconds':max(0,int((total-done)/speed)) if total>0 and speed>0 else -1,
+                                'processedBytes':processed})
+        return report
+
     def _download_asset(self,asset,tag):
         from update_files import trusted_url,file_hash
         trusted_url(asset.url,asset.url)
@@ -376,6 +390,7 @@ class UpdateManager(QObject):
             request=urllib.request.Request(asset.url,headers={'User-Agent':USER_AGENT})
             with urllib.request.urlopen(request,timeout=30) as response,temporary.open('wb') as output:
                 total=int(response.headers.get('Content-Length') or asset.size or 0);received=0
+                report=self._transfer_reporter();report(0,total)
                 if total>MAX_DOWNLOAD_BYTES:raise ValueError('更新包体积异常。')
                 while True:
                     chunk=response.read(256*1024)
@@ -383,8 +398,11 @@ class UpdateManager(QObject):
                     received+=len(chunk)
                     if received>MAX_DOWNLOAD_BYTES:raise ValueError('更新包超过允许体积。')
                     output.write(chunk)
-                    if total:self._received.emit({'progress':min(90,int(received*90/total))})
+                    report(received,total)
+                    if total:self._received.emit({'progress':min(85,int(received*85/total))})
             if not received or total and received!=total:raise ValueError('更新包下载不完整。')
+            report(received,total,force=True)
+            self._received.emit({'status':'verifying','progress':85,'message':'正在校验更新包…','bytesPerSecond':0,'remainingSeconds':-1})
             if asset.digest and file_hash(temporary)!=asset.digest.removeprefix('sha256:'):raise ValueError('更新包校验失败。')
             validate_zip_package(temporary);os.replace(temporary,target);return target
         finally:temporary.unlink(missing_ok=True)
