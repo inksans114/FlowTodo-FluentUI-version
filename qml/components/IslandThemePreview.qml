@@ -1,4 +1,5 @@
 import QtQuick
+import "../i18n"
 import RinUI
 
 // Local, resolution-independent illustrations of the four island styles.
@@ -21,7 +22,7 @@ Rectangle {
             color: Qt.alpha(root.accent, 0.13)
             IconWidget { anchors.centerIn: parent; icon: "ic_fluent_timer_20_regular"; size: 16; color: root.accent }
         }
-        Text { x: 44; y: 10; height: 14; text: "专注中"; font.pixelSize: 10; lineHeightMode: Text.ProportionalHeight; lineHeight: 1; color: root.accent }
+        Text { x: 44; y: 10; height: 14; text: I18n.t("专注中"); font.pixelSize: 10; lineHeightMode: Text.ProportionalHeight; lineHeight: 1; color: root.accent }
         Text { x: 44; y: 27; height: 24; text: "24:38"; font.pixelSize: 18; lineHeightMode: Text.ProportionalHeight; lineHeight: 1; font.weight: Font.DemiBold; color: "#252735" }
         Rectangle { x: parent.width - 28; y: 23; width: 16; height: 16; radius: root.themeId === "win10" ? 2 : 8; color: root.accent
             Text { anchors.centerIn: parent; height: 14; verticalAlignment: Text.AlignVCenter; lineHeightMode: Text.ProportionalHeight; lineHeight: 1; text: "Ⅱ"; font.pixelSize: 10; color: "white" }

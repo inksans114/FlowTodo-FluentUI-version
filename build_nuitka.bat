@@ -75,12 +75,14 @@ echo [INFO] Compiling with two parallel jobs. Close unused apps to leave memory 
     --include-module=main ^
     --include-module=backend ^
     --include-module=app_paths ^
+    --include-module=runtime_diagnostics ^
     --include-module=startup_manager ^
     --include-module=compat_backend ^
     --include-module=island ^
     --include-module=notes ^
     --include-module=ai_library ^
     --include-module=ai_planning ^
+    --include-module=ai_output_language ^
     --include-module=ai_service_settings ^
     --include-module=account_state ^
     --include-module=cloud_client ^
@@ -110,6 +112,8 @@ echo [INFO] Compiling with two parallel jobs. Close unused apps to leave memory 
     --include-module=i18n_runtime ^
     --include-module=notification_audio ^
     --include-module=updater ^
+    --include-module=update_installer ^
+    --include-module=update_files ^
     --include-module=version ^
     --include-package=RinUI ^
     --include-package=PySide6.QtWebEngineWidgets ^
@@ -135,6 +139,7 @@ echo [INFO] Compiling with two parallel jobs. Close unused apps to leave memory 
     --include-data-dir="%ROOT%vendor=vendor" ^
     --include-data-files="%ROOT%logopromax.ico=logopromax.ico" ^
     --include-data-files="%ROOT%audio.mp3=audio.mp3" ^
+    --include-data-files="%ROOT%start_compatibility.bat=start_compatibility.bat" ^
     --report="%BUILD_OUTPUT%\compilation-report.xml" ^
     --nofollow-import-to=playsound ^
     --nofollow-import-to=mediapipe.tasks.python.test ^

@@ -1,9 +1,9 @@
 """Launch a narrow Windows helper on the next start, retaining rollback files."""
-import json,os,subprocess,sys
+import json,os,subprocess,sys,time,uuid
 from pathlib import Path
 from update_files import destination,file_hash,safe_relative
 
-SCRIPT=r'''param([int]$OldPid,[string]$Stage,[string]$Pending,[string]$Executable)
+SCRIPT=r'''param([int]$OldPid,[string]$Stage,[string]$Pending,[string]$Executable,[string]$Ready)
 $ErrorActionPreference='Stop'
 $plan=Get-Content -LiteralPath (Join-Path $Stage 'plan.json') -Raw | ConvertFrom-Json
 $root=[IO.Path]::GetFullPath($plan.install_root).TrimEnd('\')
@@ -22,6 +22,7 @@ function CheckedPath([string]$base,[string]$relative){
  return $candidate
 }
 try{
+ 'ready' | Set-Content -LiteralPath $Ready -Encoding UTF8
  $deadline=(Get-Date).AddSeconds(120)
  while(Get-Process -Id $OldPid -ErrorAction SilentlyContinue){if((Get-Date) -gt $deadline){throw '等待程序退出超时'};Start-Sleep -Milliseconds 300}
  foreach($item in $plan.files){
@@ -60,6 +61,22 @@ def launch_pending(pending_file,current_version,is_newer):
   source=destination(stage/'files',safe_relative(item['path']));destination(exe.parent,item['path'])
   if source.stat().st_size!=item['size'] or file_hash(source)!=item['sha256']:raise ValueError('下载文件已变化，停止安装。')
  script=cache/'apply-update.ps1';script.write_text(SCRIPT,encoding='utf-8-sig')
- flags=getattr(subprocess,'CREATE_NO_WINDOW',0)|getattr(subprocess,'DETACHED_PROCESS',0)
- subprocess.Popen(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass','-File',str(script),'-OldPid',str(os.getpid()),'-Stage',str(stage),'-Pending',str(pending),'-Executable',str(exe)],creationflags=flags,close_fds=True)
- return True
+ ready=cache/('installer-ready-'+uuid.uuid4().hex+'.txt')
+ powershell=Path(os.environ.get('SystemRoot','C:/Windows'))/'System32/WindowsPowerShell/v1.0/powershell.exe'
+ # Windowed builds may have no stdout/stderr. Preserve helper startup failures.
+ with (cache/'installer-launch.log').open('ab') as output:
+  process=subprocess.Popen([str(powershell),'-NoProfile','-ExecutionPolicy','Bypass','-File',str(script),'-OldPid',str(os.getpid()),'-Stage',str(stage),'-Pending',str(pending),'-Executable',str(exe),'-Ready',str(ready)],creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0),close_fds=True,stdin=subprocess.DEVNULL,stdout=output,stderr=subprocess.STDOUT)
+ try:
+  deadline=time.monotonic()+8
+  while time.monotonic()<deadline:
+   if ready.is_file() and ready.read_text(encoding='utf-8-sig').strip()=='ready':return True
+   if process.poll() is not None:raise RuntimeError('更新安装程序提前退出，请查看 installer-launch.log。')
+   time.sleep(.05)
+  raise RuntimeError('更新安装程序未确认就绪，软件保持运行。')
+ except Exception:
+  if process.poll() is None:
+   process.terminate()
+   try:process.wait(timeout=3)
+   except subprocess.TimeoutExpired:process.kill();process.wait(timeout=3)
+  raise
+ finally:ready.unlink(missing_ok=True)

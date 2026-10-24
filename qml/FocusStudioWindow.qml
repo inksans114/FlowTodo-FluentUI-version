@@ -1,11 +1,12 @@
 import QtQuick
+import "i18n"
 import QtQuick.Window
 import QtQuick.Controls.Basic as Basic
 
 Window {
     id: studio
     objectName: "focusStudioWindow"
-    title: "FlowTodo · 专注"
+    title: I18n.t("FlowTodo · 专注")
     width: 1280
     height: 800
     color: "#102822"
@@ -26,12 +27,12 @@ Window {
             text: String(Math.floor(Number(parent.state.remaining) / 60)).padStart(2, "0") + ":" + String(Number(parent.state.remaining) % 60).padStart(2, "0")
             color: "#eff4ec"; font.pixelSize: 84; font.weight: Font.Light
         }
-        Text { anchors.horizontalCenter: parent.horizontalCenter; text: Backend.focusWebAvailable ? "场景正在载入；计时保持运行" : "安静专注 · Esc 返回"; color: "#c0cfc0" }
+        Text { anchors.horizontalCenter: parent.horizontalCenter; text: Backend.focusWebAvailable ? I18n.t("场景正在载入；计时保持运行") : I18n.t("安静专注 · Esc 返回"); color: "#c0cfc0" }
         Row {
             anchors.horizontalCenter: parent.horizontalCenter; spacing: 16
-            Basic.Button { text: "暂停 / 继续"; onClicked: Backend.focusStudioAction(parent.parent.state.status === "paused" ? "resume" : "pause", "") }
-            Basic.Button { text: "完成本轮"; onClicked: Backend.endStepFocus() }
-            Basic.Button { text: "返回应用"; onClicked: Backend.exitFocusStudio() }
+            Basic.Button { text: I18n.t("暂停 / 继续"); onClicked: Backend.focusStudioAction(parent.parent.state.status === "paused" ? "resume" : "pause", "") }
+            Basic.Button { text: I18n.t("完成本轮"); onClicked: Backend.endStepFocus() }
+            Basic.Button { text: I18n.t("返回应用"); onClicked: Backend.exitFocusStudio() }
         }
     }
 }

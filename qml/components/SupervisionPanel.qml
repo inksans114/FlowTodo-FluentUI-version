@@ -1,4 +1,5 @@
 import QtQuick
+import "../i18n"
 import QtQuick.Controls
 import QtQuick.Layouts
 
@@ -12,13 +13,13 @@ Item {
     property bool showCalibration: false
     objectName: "supervisionPanel"
     readonly property var calibration: state.calibration || ({})
-    readonly property string postureLabel: calibration.reason === "unstable" ? "姿态不稳定" : calibration.reason === "unmatched" ? "姿态偏离学习参考" : "非学习姿态"
+    readonly property string postureLabel: calibration.reason === "unstable" ? I18n.t("姿态不稳定") : calibration.reason === "unmatched" ? I18n.t("姿态偏离学习参考") : I18n.t("非学习姿态")
     readonly property var alert: state.alert || ({})
     readonly property color ink: "#e5ece8"
     readonly property color muted: "#9dacaa"
     function clock(v) { var s = Math.max(0, Math.floor(Number(v) || 0)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0") }
     function cameraLabel() {
-        return ({off:"摄像头未开启", loading:"正在加载本地模型…", ready:"调整镜头，让手和作业进入画面", hands:"手部已入镜 · " + Number(state.handCount || 0) + " 只手", tracking:"看到上半身，但手部没有入镜；只能确认人在镜头前", partial:"看到人，但镜头范围不足，不能判断学习动作", absent:"暂未看到人，持续缺席才提醒", unknown:"画面过暗或不清晰，暂不判断", deskUnknown:"桌面没有清晰手部线索，暂不判断是否离开", waitingPhone:"等待手机画面，请在手机页面开启摄像头", error:"摄像头暂不可用", paused:"暂停／休息中，画面传送与检测已暂停"})[state.cameraStatus] || "等待检测"
+        return ({off:I18n.t("摄像头未开启"), loading:I18n.t("正在加载本地模型…"), ready:I18n.t("调整镜头，让手和作业进入画面"), hands:I18n.t("手部已入镜 · ") + Number(state.handCount || 0) + I18n.t(" 只手"), tracking:I18n.t("看到上半身，但手部没有入镜；只能确认人在镜头前"), partial:I18n.t("看到人，但镜头范围不足，不能判断学习动作"), absent:I18n.t("暂未看到人，持续缺席才提醒"), unknown:I18n.t("画面过暗或不清晰，暂不判断"), deskUnknown:I18n.t("桌面没有清晰手部线索，暂不判断是否离开"), waitingPhone:I18n.t("等待手机画面，请在手机页面开启摄像头"), error:I18n.t("摄像头暂不可用"), paused:I18n.t("暂停／休息中，画面传送与检测已暂停")})[state.cameraStatus] || I18n.t("等待检测")
     }
     component Action: Button {
         property bool primary: false
@@ -35,13 +36,13 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             Rectangle { width: 8; height: 8; radius: 4; color: panel.state.paused ? "#d3b88a" : "#b5d3a2" }
-            Text { text: "FlowTodo · 监督模式"; color: panel.ink; font.pixelSize: 14 }
+            Text { text: I18n.t("FlowTodo · 监督模式"); color: panel.ink; font.pixelSize: 14 }
             Item { Layout.fillWidth: true
                 MouseArea { anchors.fill: parent; enabled: panel.compact; onPressed: panel.hostWindow.startSystemMove() }
             }
-            Action { visible: panel.state.cameraStatus !== "off"; text: "姿态校准"; onClicked: panel.showCalibration = !panel.showCalibration }
-            Action { objectName: "supervisionResize"; text: panel.compact ? "全屏" : "小窗"; onClicked: Backend.presentSupervision(panel.compact ? "full" : "compact") }
-            Action { text: "返回"; onClicked: Backend.stopSupervision() }
+            Action { visible: panel.state.cameraStatus !== "off"; text: I18n.t("姿态校准"); onClicked: panel.showCalibration = !panel.showCalibration }
+            Action { objectName: "supervisionResize"; text: panel.compact ? I18n.t("全屏") : I18n.t("小窗"); onClicked: Backend.presentSupervision(panel.compact ? "full" : "compact") }
+            Action { text: I18n.t("返回"); onClicked: Backend.stopSupervision() }
         }
         Item { visible: !panel.compact; Layout.fillHeight: true }
         RowLayout {
@@ -52,10 +53,10 @@ Item {
             ColumnLayout {
                 Layout.fillWidth: true
                 spacing: panel.compact ? 6 : 20
-                Text { text: panel.state.paused ? "先休息，回来接着做" : "只照顾好眼前这一段"; color: panel.muted; font.pixelSize: panel.compact ? 12 : 16 }
+                Text { text: panel.state.paused ? I18n.t("先休息，回来接着做") : I18n.t("只照顾好眼前这一段"); color: panel.muted; font.pixelSize: panel.compact ? 12 : 16 }
                 Text { objectName: "supervisionClock"; text: panel.clock(panel.session.remaining); color: panel.ink; font.pixelSize: panel.compact ? 48 : 100; font.weight: Font.Light; font.family: "Segoe UI"; font.features: {"tnum": 1} }
-                Text { Layout.fillWidth: true; text: String(panel.studio.goal || panel.session.title || "做好眼前这一件事"); color: panel.ink; font.pixelSize: panel.compact ? 16 : 24; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight }
-                Text { visible: !panel.compact; Layout.fillWidth: true; text: "思考和短暂停顿也属于学习。连续异常才提醒，你随时可以纠正判断。"; color: panel.muted; wrapMode: Text.Wrap; font.pixelSize: 14 }
+                Text { Layout.fillWidth: true; text: String(panel.studio.goal || panel.session.title || I18n.t("做好眼前这一件事")); color: panel.ink; font.pixelSize: panel.compact ? 16 : 24; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight }
+                Text { visible: !panel.compact; Layout.fillWidth: true; text: I18n.t("思考和短暂停顿也属于学习。连续异常才提醒，你随时可以纠正判断。"); color: panel.muted; wrapMode: Text.Wrap; font.pixelSize: 14 }
             }
             Rectangle {
                 visible: !panel.compact && panel.state.cameraStatus !== "off"
@@ -99,11 +100,11 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             spacing: 8
             Text { Layout.fillWidth: true; visible: panel.state.cameraStatus !== "off"; text: panel.state.cameraError || panel.cameraLabel(); color: panel.muted; wrapMode: Text.Wrap; maximumLineCount: panel.compact ? 2 : 4; elide: Text.ElideRight; font.pixelSize: 12 }
-            Text { Layout.fillWidth: true; visible: !panel.compact && panel.state.cameraStatus !== "off" && !panel.state.paused; text: ({front:"眼部辅助：目光大致朝前", side:"眼部辅助：目光可能朝侧边，思考或查资料都很正常", down:"眼部辅助：低头看向下方，写作业时很常见", unknown:"眼部未清晰入镜，不使用眼神判断"})[panel.state.eyeDirection || "unknown"] + " · 这些线索不能证明是否在认真学习"; wrapMode: Text.Wrap; color: panel.muted; font.pixelSize: 12 }
-            Text { Layout.fillWidth: true; visible: Boolean(panel.state.heldPhone); text: panel.state.mode === "phone" ? "手机学习已允许" : "疑似持手机，持续一段时间后才提醒"; color: "#d8c596"; wrapMode: Text.Wrap; font.pixelSize: 12 }
-            Text { Layout.fillWidth: true; visible: panel.state.screenStatus !== "off"; text: panel.state.screenError || (panel.state.paused ? "屏幕巡查已暂停" : panel.state.screenStatus === "loading" ? "正在加载本地文字识别…" : String(panel.state.screenLabel || "等待屏幕巡查")); color: panel.muted; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; font.pixelSize: 12 }
-            Text { visible: !panel.compact && String(panel.state.screenTitle || "").length > 0; Layout.fillWidth: true; text: "当前窗口 · " + String(panel.state.screenTitle || ""); color: panel.muted; elide: Text.ElideRight; font.pixelSize: 12 }
-            Text { visible: Boolean(panel.calibration.ready); Layout.fillWidth: true; text: "个人姿态参考 · " + (panel.calibration.verdict === "other" ? panel.state.paused ? "检测已暂停" : panel.calibration.alarmExempt ? "姿态提醒已暂时豁免" : panel.alert.kind === "posture" ? "已按非学习状态触发提醒" : panel.postureLabel + "，按非学习状态计时 · 剩余 " + Number(panel.calibration.alarmRemaining === undefined ? 5 : panel.calibration.alarmRemaining) + " 秒报警" : ({learning:"更接近你记录的学习姿势",unknown:"姿态线索不足，等待有效画面"})[panel.calibration.verdict || "unknown"]); color: panel.calibration.verdict === "other" ? "#f4c27e" : panel.muted; wrapMode: Text.Wrap; font.pixelSize: 12 }
+            Text { Layout.fillWidth: true; visible: !panel.compact && panel.state.cameraStatus !== "off" && !panel.state.paused; text: ({front:I18n.t("眼部辅助：目光大致朝前"), side:I18n.t("眼部辅助：目光可能朝侧边，思考或查资料都很正常"), down:I18n.t("眼部辅助：低头看向下方，写作业时很常见"), unknown:I18n.t("眼部未清晰入镜，不使用眼神判断")})[panel.state.eyeDirection || "unknown"] + I18n.t(" · 这些线索不能证明是否在认真学习"); wrapMode: Text.Wrap; color: panel.muted; font.pixelSize: 12 }
+            Text { Layout.fillWidth: true; visible: Boolean(panel.state.heldPhone); text: panel.state.mode === "phone" ? I18n.t("手机学习已允许") : I18n.t("疑似持手机，持续一段时间后才提醒"); color: "#d8c596"; wrapMode: Text.Wrap; font.pixelSize: 12 }
+            Text { Layout.fillWidth: true; visible: panel.state.screenStatus !== "off"; text: panel.state.screenError || (panel.state.paused ? I18n.t("屏幕巡查已暂停") : panel.state.screenStatus === "loading" ? I18n.t("正在加载本地文字识别…") : String(panel.state.screenLabel || I18n.t("等待屏幕巡查"))); color: panel.muted; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; font.pixelSize: 12 }
+            Text { visible: !panel.compact && String(panel.state.screenTitle || "").length > 0; Layout.fillWidth: true; text: I18n.t("当前窗口 · ") + String(panel.state.screenTitle || ""); color: panel.muted; elide: Text.ElideRight; font.pixelSize: 12 }
+            Text { visible: Boolean(panel.calibration.ready); Layout.fillWidth: true; text: I18n.t("个人姿态参考 · ") + (panel.calibration.verdict === "other" ? panel.state.paused ? I18n.t("检测已暂停") : panel.calibration.alarmExempt ? I18n.t("姿态提醒已暂时豁免") : panel.alert.kind === "posture" ? I18n.t("已按非学习状态触发提醒") : panel.postureLabel + I18n.t("，按非学习状态计时 · 剩余 ") + Number(panel.calibration.alarmRemaining === undefined ? 5 : panel.calibration.alarmRemaining) + I18n.t(" 秒报警") : ({learning:I18n.t("更接近你记录的学习姿势"),unknown:I18n.t("姿态线索不足，等待有效画面")})[panel.calibration.verdict || "unknown"]); color: panel.calibration.verdict === "other" ? "#f4c27e" : panel.muted; wrapMode: Text.Wrap; font.pixelSize: 12 }
         }
         Rectangle {
             visible: panel.showCalibration && panel.state.cameraStatus !== "off"
@@ -112,16 +113,16 @@ Item {
             radius: 14; color: "#20362b"; border.color: "#425a4c"
             ColumnLayout {
                 id: calibrationContent; anchors.fill: parent; anchors.margins: 14; spacing: 10
-                Text { text: "让监督认识你的习惯"; color: panel.ink; font.bold: true }
-                Text { Layout.fillWidth: true; text: panel.calibration.message || "先记录学习姿态，再记录非学习姿态"; color: panel.muted; wrapMode: Text.Wrap; font.pixelSize: 12 }
-                Text { visible: panel.calibration.phase === "learning" || panel.calibration.phase === "other"; text: "有效样本 " + Number(panel.calibration.count || 0) + " / " + Number(panel.calibration.target || 10); color: panel.ink; font.pixelSize: 12 }
+                Text { text: I18n.t("让监督认识你的习惯"); color: panel.ink; font.bold: true }
+                Text { Layout.fillWidth: true; text: panel.calibration.message || I18n.t("先记录学习姿态，再记录非学习姿态"); color: panel.muted; wrapMode: Text.Wrap; font.pixelSize: 12 }
+                Text { visible: panel.calibration.phase === "learning" || panel.calibration.phase === "other"; text: I18n.t("有效样本 ") + Number(panel.calibration.count || 0) + " / " + Number(panel.calibration.target || 10); color: panel.ink; font.pixelSize: 12 }
                 Flow {
                     Layout.fillWidth: true; spacing: 8
-                    Action { text: "1 · 记录学习姿态"; enabled: !panel.state.paused && panel.calibration.phase !== "learning" && panel.calibration.phase !== "other"; onClicked: Backend.supervision.calibrate("learning") }
-                    Action { text: "2 · 记录非学习姿态"; enabled: !panel.state.paused && Boolean(panel.calibration.hasLearning) && panel.calibration.phase !== "learning" && panel.calibration.phase !== "other"; onClicked: Backend.supervision.calibrate("other") }
-                    Action { visible: panel.calibration.phase === "learning" || panel.calibration.phase === "other"; text: "取消"; onClicked: Backend.supervision.calibrate("cancel") }
+                    Action { text: I18n.t("1 · 记录学习姿态"); enabled: !panel.state.paused && panel.calibration.phase !== "learning" && panel.calibration.phase !== "other"; onClicked: Backend.supervision.calibrate("learning") }
+                    Action { text: I18n.t("2 · 记录非学习姿态"); enabled: !panel.state.paused && Boolean(panel.calibration.hasLearning) && panel.calibration.phase !== "learning" && panel.calibration.phase !== "other"; onClicked: Backend.supervision.calibrate("other") }
+                    Action { visible: panel.calibration.phase === "learning" || panel.calibration.phase === "other"; text: I18n.t("取消"); onClicked: Backend.supervision.calibrate("cancel") }
                 }
-                Text { Layout.fillWidth: true; text: "只保存本次的姿态特征，不存画面。移动镜头后重做校准；姿势相似时不强行判断。"; color: panel.muted; wrapMode: Text.Wrap; font.pixelSize: 11 }
+                Text { Layout.fillWidth: true; text: I18n.t("只保存本次的姿态特征，不存画面。移动镜头后重做校准；姿势相似时不强行判断。"); color: panel.muted; wrapMode: Text.Wrap; font.pixelSize: 11 }
             }
         }
         Rectangle {
@@ -138,21 +139,21 @@ Item {
                 Text { visible: !panel.compact; Layout.fillWidth: true; text: String(panel.alert.detail || ""); color: "#c4c4ab"; wrapMode: Text.Wrap; font.pixelSize: 12 }
                 Flow {
                     Layout.fillWidth: true; spacing: 8
-                    Action { text: "回到任务"; primary: true; onClicked: Backend.supervision.resolveAlert(String(panel.alert.id), "back") }
-                    Action { text: "正在查资料"; onClicked: Backend.supervision.resolveAlert(String(panel.alert.id), "allow") }
-                    Action { text: "误判"; onClicked: Backend.supervision.resolveAlert(String(panel.alert.id), "wrong") }
-                    Action { text: "休息一下"; onClicked: Backend.supervision.resolveAlert(String(panel.alert.id), "rest") }
+                    Action { text: I18n.t("回到任务"); primary: true; onClicked: Backend.supervision.resolveAlert(String(panel.alert.id), "back") }
+                    Action { text: I18n.t("正在查资料"); onClicked: Backend.supervision.resolveAlert(String(panel.alert.id), "allow") }
+                    Action { text: I18n.t("误判"); onClicked: Backend.supervision.resolveAlert(String(panel.alert.id), "wrong") }
+                    Action { text: I18n.t("休息一下"); onClicked: Backend.supervision.resolveAlert(String(panel.alert.id), "rest") }
                 }
             }
         }
         Item { visible: !panel.compact; Layout.fillHeight: true }
         RowLayout {
             Layout.fillWidth: true
-            Text { text: "已提醒 " + Number(panel.state.count || 0) + " 次"; color: panel.muted; font.pixelSize: 12 }
+            Text { text: I18n.t("已提醒 ") + Number(panel.state.count || 0) + I18n.t(" 次"); color: panel.muted; font.pixelSize: 12 }
             Item { Layout.fillWidth: true }
-            Action { visible: Boolean(panel.session.guidedWaiting); text: "回到 AI 引导"; primary: true; onClicked: Backend.returnAiFromSupervision() }
-            Action { objectName: "supervisionPause"; visible: !panel.session.guidedWaiting; text: panel.state.paused ? "继续" : "暂停"; primary: true; onClicked: Backend.toggleSupervisionPause() }
-            Action { text: "结束本轮"; onClicked: Backend.finishSupervision() }
+            Action { visible: Boolean(panel.session.guidedWaiting); text: I18n.t("回到 AI 引导"); primary: true; onClicked: Backend.returnAiFromSupervision() }
+            Action { objectName: "supervisionPause"; visible: !panel.session.guidedWaiting; text: panel.state.paused ? I18n.t("继续") : I18n.t("暂停"); primary: true; onClicked: Backend.toggleSupervisionPause() }
+            Action { text: I18n.t("结束本轮"); onClicked: Backend.finishSupervision() }
         }
     }
 }

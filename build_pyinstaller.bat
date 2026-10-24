@@ -100,7 +100,8 @@ rem Standard PyInstaller Qt hooks collect WebEngine resources and multimedia DLL
     --add-data "%ROOT%i18n:i18n" ^
     --add-data "%ROOT%vendor\RinUI:vendor/RinUI" ^
     --add-data "%ROOT%logopromax.ico:." ^
-    --add-data "%ROOT%audio.mp3:."
+    --add-data "%ROOT%audio.mp3:." ^
+    --add-data "%ROOT%start_compatibility.bat:."
 if errorlevel 1 goto :build_failed
 
 set "BUILT_EXE=%BUILD_OUTPUT%\FlowTodo\FlowTodo.exe"

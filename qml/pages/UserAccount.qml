@@ -40,8 +40,8 @@ FluentPage {
                 onClicked: page.importAvatar()
             }
             ColumnLayout { Layout.fillWidth: true; spacing: 6
-                Text { Layout.fillWidth: true; text: page.account.name; font.pixelSize: 20; font.weight: Font.DemiBold; color: ui.ink; elide: Text.ElideRight }
-                Text { Layout.fillWidth: true; elide: Text.ElideRight; text: page.account.local ? "本地访客" : page.account.handle; font.pixelSize: 12; color: ui.muted }
+                Text { Layout.fillWidth: true; text: page.account.local ? I18n.t("本地访客") : page.account.name; font.pixelSize: 20; font.weight: Font.DemiBold; color: ui.ink; elide: Text.ElideRight }
+                Text { Layout.fillWidth: true; elide: Text.ElideRight; text: page.account.local ? I18n.t("本地访客") : page.account.handle; font.pixelSize: 12; color: ui.muted }
                 AccountPlanBadge { plan: page.account.planId || "free" }
             }
             Rin.Button { objectName: "accountEditButton"; text: I18n.t("编辑资料"); enabled: Boolean(page.cloud.loggedIn); icon.name: "ic_fluent_edit_20_regular"; onClicked: { nickname.text = page.account.name; editDialog.open() } }
@@ -49,10 +49,10 @@ FluentPage {
     }
     RowLayout {
         Layout.fillWidth: true
-        Rin.Button { objectName: "accountCloudStorageButton"; text: "管理云端存储"; icon.name: "ic_fluent_cloud_20_regular"; highlighted: true; enabled: page.cloud.loggedIn; onClicked: { var view=page.router(); if(view) view.push(Qt.resolvedUrl("CloudStorage.qml")) } }
-        Rin.Button { text: "刷新账户"; enabled: page.cloud.loggedIn && !page.cloud.busy; onClicked: Backend.cloudRefresh() }
+        Rin.Button { objectName: "accountCloudStorageButton"; text: I18n.t("管理云端存储"); icon.name: "ic_fluent_cloud_20_regular"; highlighted: true; enabled: page.cloud.loggedIn; onClicked: { var view=page.router(); if(view) view.push(Qt.resolvedUrl("CloudStorage.qml")) } }
+        Rin.Button { text: I18n.t("刷新账户"); enabled: page.cloud.loggedIn && !page.cloud.busy; onClicked: Backend.cloudRefresh() }
         Item { Layout.fillWidth: true }
-        Rin.Button { objectName: "accountLogoutButton"; text: page.cloud.loggedIn ? "退出登录" : "登录账户"; enabled: page.cloud.loggedIn || !page.cloud.busy; onClicked: page.cloud.loggedIn ? logoutDialog.open() : Backend.cloudLogin() }
+        Rin.Button { objectName: "accountLogoutButton"; text: page.cloud.loggedIn ? I18n.t("退出登录") : I18n.t("登录账户"); enabled: page.cloud.loggedIn || !page.cloud.busy; onClicked: page.cloud.loggedIn ? logoutDialog.open() : Backend.cloudLogin() }
     }
     Text { visible: Boolean(page.cloud.error); text: page.cloud.error || ""; color: "#bc4545"; wrapMode: Text.Wrap; Layout.fillWidth: true }
     Rin.Frame {
@@ -61,11 +61,11 @@ FluentPage {
         contentItem: RowLayout {
             spacing: 16
             ColumnLayout { Layout.fillWidth: true; spacing: 5
-                Text { text: "手机与电脑自动同步"; font.pixelSize: 14; font.weight: Font.DemiBold; color: ui.ink }
-                Text { Layout.fillWidth: true; text: page.cloud.autoSync ? (page.cloud.lastSync ? "上次同步 " + page.cloud.lastSync : "应用运行时同步待办与任务流") : "已关闭自动同步，仍可手动同步"; font.pixelSize: 12; color: ui.muted; wrapMode: Text.Wrap }
-                Text { visible: Boolean((page.cloud.conflicts || []).length); text: "有同步冲突，请在云端存储页面确认版本"; font.pixelSize: 12; color: "#bc4545"; wrapMode: Text.Wrap }
+                Text { text: I18n.t("手机与电脑自动同步"); font.pixelSize: 14; font.weight: Font.DemiBold; color: ui.ink }
+                Text { Layout.fillWidth: true; text: page.cloud.autoSync ? (page.cloud.lastSync ? I18n.t("上次同步 ") + page.cloud.lastSync : I18n.t("应用运行时同步待办与任务流")) : I18n.t("已关闭自动同步，仍可手动同步"); font.pixelSize: 12; color: ui.muted; wrapMode: Text.Wrap }
+                Text { visible: Boolean((page.cloud.conflicts || []).length); text: I18n.t("有同步冲突，请在云端存储页面确认版本"); font.pixelSize: 12; color: "#bc4545"; wrapMode: Text.Wrap }
             }
-            Rin.Switch { objectName: "accountAutoSync"; checked: Boolean(page.cloud.autoSync); checkedText: "开启"; uncheckedText: "关闭"; onClicked: Backend.setSetting("cloudAutoSync", checked) }
+            Rin.Switch { objectName: "accountAutoSync"; checked: Boolean(page.cloud.autoSync); checkedText: I18n.t("开启"); uncheckedText: I18n.t("关闭"); onClicked: Backend.setSetting("cloudAutoSync", checked) }
         }
     }
     LogoutConfirmDialog { id: logoutDialog; objectName: "accountPageLogoutDialog" }
@@ -109,7 +109,7 @@ FluentPage {
             Icon { name: "ic_fluent_sparkle_20_regular"; size: 28; color: ui.accent }
             ColumnLayout { Layout.fillWidth: true; spacing: 6
                 Text { text: page.account.plan; font.pixelSize: 18; font.weight: Font.DemiBold; color: ui.ink }
-                Text { Layout.fillWidth: true; text: page.cloud.loggedIn ? "官方 AI · 本期 " + Number(((page.cloud.account || {}).officialAI || {}).limit || 0) + " 次，剩余 " + Number(((page.cloud.account || {}).officialAI || {}).remaining || 0) + " 次" : "本机 AI 体验 · 共 " + Number(page.usage.limit || 5) + " 次"; font.pixelSize: 13; color: ui.muted; wrapMode: Text.Wrap }
+                Text { Layout.fillWidth: true; text: page.cloud.loggedIn ? I18n.t("官方 AI · 本期 ") + Number(((page.cloud.account || {}).officialAI || {}).limit || 0) + I18n.t(" 次，剩余 ") + Number(((page.cloud.account || {}).officialAI || {}).remaining || 0) + I18n.t(" 次") : I18n.t("本机 AI 体验 · 共 ") + Number(page.usage.limit || 5) + I18n.t(" 次"); font.pixelSize: 13; color: ui.muted; wrapMode: Text.Wrap }
             }
             Rin.Button { objectName: "accountManageServiceButton"; text: I18n.t("管理服务"); onClicked: page.openService() }
         }
@@ -131,7 +131,7 @@ FluentPage {
             }
             AccountQuota { Layout.fillWidth: true; compact: true; usageData: page.usage; showTitle: false }
             RowLayout { Layout.fillWidth: true; spacing: 12
-                Text { Layout.fillWidth: true; text: page.usage.status === "provider" ? I18n.t("不消耗 Free 次数") : "成功回复计 1 次；结果不确定时暂时保留额度。"; font.pixelSize: 12; color: ui.muted; wrapMode: Text.Wrap }
+                Text { Layout.fillWidth: true; text: page.usage.status === "provider" ? I18n.t("不消耗 Free 次数") : I18n.t("成功回复计 1 次；结果不确定时暂时保留额度。"); font.pixelSize: 12; color: ui.muted; wrapMode: Text.Wrap }
                 Rin.Button { visible: page.usage.status === "exhausted"; text: I18n.t("接入自己的 API"); onClicked: page.openService() }
             }
         }

@@ -96,6 +96,21 @@ FluentPage {
 
     SettingCard {
         Layout.fillWidth: true
+        title: I18n.t("界面语言")
+        description: I18n.t("选择应用界面使用的语言")
+        icon.name: "ic_fluent_local_language_20_regular"
+        ComboBox {
+            id: languageBox
+            objectName: "languageBox"
+            Layout.preferredWidth: 180
+            model: page.languageLabels
+            onActivated: function(index) {
+                if (!page.loading) Backend.setLanguage(page.languageOptions[index].code)
+            }
+        }
+    }
+    SettingCard {
+        Layout.fillWidth: true
         title: I18n.t("明暗模式")
         description: I18n.t("浅色、深色或跟随 Windows 系统设置")
         icon.name: "ic_fluent_dark_theme_20_regular"
@@ -398,21 +413,6 @@ FluentPage {
         Layout.fillWidth: true
         text: I18n.t("应用")
         typography: Typography.BodyStrong
-    }
-    SettingCard {
-        Layout.fillWidth: true
-        title: I18n.t("界面语言")
-        description: I18n.t("选择应用界面使用的语言")
-        icon.name: "ic_fluent_local_language_20_regular"
-        ComboBox {
-            id: languageBox
-            objectName: "languageBox"
-            Layout.preferredWidth: 180
-            model: page.languageLabels
-            onActivated: function(index) {
-                if (!page.loading) Backend.setLanguage(page.languageOptions[index].code)
-            }
-        }
     }
     SettingCard {
         Layout.fillWidth: true

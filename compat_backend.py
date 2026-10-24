@@ -72,6 +72,7 @@ class RinUIBackend(BackendBridge):
     accountLoginRequested = Signal()
     systemDictationResult = Signal(QObject, bool)
     cloudAIRefreshRequested = Signal()
+    updateChanged = Signal()
 
     def __init__(self):
         super().__init__()
@@ -166,6 +167,11 @@ class RinUIBackend(BackendBridge):
         self._cloud = CloudController(self)
         self.cloudAIRefreshRequested.connect(self._cloud.refresh)
         QApplication.instance().aboutToQuit.connect(self._cloud.close)
+        from updater import UpdateManager
+        self._update_manager = UpdateManager(self, backend=self)
+        self._update_manager.stateChanged.connect(self.updateChanged.emit)
+        self._update_manager.statusChanged.connect(self.messageRequested.emit)
+        self.languageChanged.connect(self.updateChanged.emit)
 
     def attach_native_window(self, window) -> None:
         self.native_window = window
@@ -405,6 +411,8 @@ class RinUIBackend(BackendBridge):
         self.accountChanged.emit()
 
     def _call_ai_chat(self, messages, long_mode=False, output_limit=None):
+        from ai_output_language import localized_messages
+        messages = localized_messages(messages, self.settings_database.get("language") or translator().language)
         service = self.settings_database.get("aiServiceMode", "default")
         if service == 'official':
             if not self._cloud.logged_in():raise RuntimeError('请先在我的账户登录，再使用官方通道。')
@@ -2064,6 +2072,33 @@ class RinUIBackend(BackendBridge):
         self.task_relations.remove_nodes([n["key"] for n in self._relation_graph()["nodes"]
                                          if n["collection"] == f"project:{int(project_id)}"])
         self.delete_project(project_id)
+
+    @Property(str, constant=True)
+    def appVersion(self) -> str:
+        from version import APP_VERSION
+        return APP_VERSION
+
+    @Property(str, notify=updateChanged)
+    def updateJson(self) -> str:
+        return self._json(self._update_manager.view())
+
+    @Slot()
+    def checkForUpdates(self):
+        self._update_manager.check_for_updates(manual=True)
+
+    @Slot()
+    def downloadUpdate(self):
+        self._update_manager.download_update()
+
+    @Slot()
+    def installUpdate(self):
+        self._update_manager.install_update()
+
+    @Slot()
+    def openReleasePage(self):
+        from updater import RELEASES_URL
+        from PySide6.QtGui import QDesktopServices
+        QDesktopServices.openUrl(QUrl(RELEASES_URL))
 
     @Property(str, notify=languageChanged)
     def language(self) -> str:

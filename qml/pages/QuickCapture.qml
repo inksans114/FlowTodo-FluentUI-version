@@ -21,6 +21,8 @@ FluentPage {
     property bool waiting: false
     property string requestId: ""
     property string sentOriginal: ""
+    // Stable stored values; only the dropdown labels are translated.
+    readonly property var categoryKeys: ["其他", "学习", "工作", "生活"]
     readonly property bool serviceReady: Backend.aiServiceReady
     readonly property var selected: drafts.filter(function(task) { return !task._skip && task.title.trim().length })
     function persist() {
@@ -51,7 +53,7 @@ FluentPage {
             tasks: page.selected.map(function(task) { return {title: task.title, category: task.category || "其他"} })})))
         if (!result.ok) { page.error = result.error; return }
         page.requestId = ""; page.waiting = false
-        page.restore(); page.error = ""; page.receipt = "已记下 " + result.total + " 件事，可以继续说下一件。"
+        page.restore(); page.error = ""; page.receipt = I18n.t("已记下 ") + result.total + I18n.t(" 件事，可以继续说下一件。")
         original.forceActiveFocus()
     }
     function organize() {
@@ -69,7 +71,7 @@ FluentPage {
         function onQuickCaptureReady(id, tasks, message) {
             if (id !== page.requestId) return
             page.waiting = false; page.requestId = ""
-            if (original.text !== page.sentOriginal) { page.error = "原话已改变，这次整理没有覆盖新内容。"; return }
+            if (original.text !== page.sentOriginal) { page.error = I18n.t("原话已改变，这次整理没有覆盖新内容。"); return }
             if (message.length) { page.error = message; return }
             page.drafts = JSON.parse(tasks); page.draftDirty = true; page.persist()
         }
@@ -93,14 +95,14 @@ FluentPage {
                 Layout.fillWidth: true
                 JourneyButton { objectName: "quickCaptureOrganize"; text: page.waiting ? I18n.t("正在整理…") : I18n.t("AI 拆分与分类（可选）"); enabled: !page.waiting && !Backend.aiRequestRunning && original.text.trim().length > 0 && original.text.length <= 4000; onClicked: { if (page.serviceReady) page.organize(); else { var router = page.nav(); if (router) router.push(Qt.resolvedUrl("AiSettings.qml")) } } }
                 Item { Layout.fillWidth: true }
-                JourneyButton { objectName: "quickCaptureSubmit"; highlighted: true; text: page.selected.length ? "记下 " + page.selected.length + " 件事" : I18n.t("记下"); enabled: page.selected.length > 0; onClicked: page.submit() }
+                JourneyButton { objectName: "quickCaptureSubmit"; highlighted: true; text: page.selected.length ? I18n.t("记下 ") + page.selected.length + I18n.t(" 件事") : I18n.t("记下"); enabled: page.selected.length > 0; onClicked: page.submit() }
             }
             Text { Layout.fillWidth: true; text: I18n.t("可选 AI 只拆分与分类当前这段原话，不带旧对话、不生成专注计划，只发送一次请求。返回后仍由你确认。"); typography: Typography.Caption; wrapMode: Text.Wrap; color: Theme.currentTheme.colors.textSecondaryColor }
         }
     }
     Text { Layout.fillWidth: true; visible: page.receipt.length > 0; text: page.receipt; color: Theme.currentTheme.colors.primaryColor; wrapMode: Text.Wrap }
     Text { Layout.fillWidth: true; visible: page.error.length > 0; text: page.error; color: Theme.currentTheme.colors.textSecondaryColor; wrapMode: Text.Wrap }
-    Text { visible: page.drafts.length > 0; text: "这次记下 · " + page.drafts.length + " 件事"; typography: Typography.BodyStrong }
+    Text { visible: page.drafts.length > 0; text: I18n.t("这次记下 · ") + page.drafts.length + I18n.t(" 件事"); typography: Typography.BodyStrong }
     Repeater {
         model: page.drafts
         delegate: Frame {
@@ -112,7 +114,7 @@ FluentPage {
                 spacing: 10
                 CheckBox { checked: !card.modelData._skip; onToggled: page.editTask(card.index, {_skip: !checked}) }
                 JourneyField { objectName: "quickCaptureTitle_" + card.index; Layout.fillWidth: true; Layout.minimumWidth: 0; text: card.modelData.title; maximumLength: 400; onTextEdited: page.editTask(card.index, {title: text}) }
-                JourneyCombo { objectName: "quickCaptureCategory_" + card.index; Layout.preferredWidth: 105; model: ["其他", "学习", "工作", "生活"]; currentIndex: Math.max(0, model.indexOf(card.modelData.category || "其他")); onActivated: page.editTask(card.index, {category: model[currentIndex]}) }
+                JourneyCombo { objectName: "quickCaptureCategory_" + card.index; Layout.preferredWidth: 105; model: [I18n.t("其他"), I18n.t("学习"), I18n.t("工作"), I18n.t("生活")]; currentIndex: Math.max(0, page.categoryKeys.indexOf(card.modelData.category || "其他")); onActivated: page.editTask(card.index, {category: page.categoryKeys[currentIndex]}) }
             }
         }
     }

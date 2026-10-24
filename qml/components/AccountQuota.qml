@@ -34,7 +34,7 @@ ColumnLayout {
     Text {
         visible: !quota.compact
         Layout.fillWidth: true
-        text: quota.usageData.status === "provider" ? I18n.t("自定义 API 不消耗 Free 次数") : "当前通道提供 " + Number(quota.usageData.limit || 0) + " 次 AI 使用"
+        text: quota.usageData.status === "provider" ? I18n.t("自定义 API 不消耗 Free 次数") : I18n.t("当前通道提供 ") + Number(quota.usageData.limit || 0) + I18n.t(" 次 AI 使用")
         typography: Typography.Caption
         color: Theme.currentTheme.colors.textSecondaryColor
         wrapMode: Text.Wrap

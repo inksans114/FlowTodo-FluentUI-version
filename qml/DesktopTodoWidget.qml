@@ -190,8 +190,8 @@ QtWindow.Window {
                     Text { text: widget.sectionTitle(); font.pixelSize: 14; font.weight: Font.DemiBold }
                     Text { text: widget.currentItems.length; font.pixelSize: 12; color: Theme.currentTheme.colors.textSecondaryColor }
                     Item { Layout.fillWidth: true }
-                    ToolButton { id: options; objectName: "desktopWidgetOptions"; implicitWidth: 30; implicitHeight: 30; flat: true; icon.name: "ic_fluent_more_horizontal_20_regular"; Accessible.name: "组件选项"; onClicked: optionsMenu.open() }
-                    ToolButton { objectName: "desktopWidgetHide"; implicitWidth: 30; implicitHeight: 30; flat: true; icon.name: "ic_fluent_dismiss_20_regular"; Accessible.name: "隐藏组件"; onClicked: widget.hideWidget() }
+                    ToolButton { id: options; objectName: "desktopWidgetOptions"; implicitWidth: 30; implicitHeight: 30; flat: true; icon.name: "ic_fluent_more_horizontal_20_regular"; Accessible.name: I18n.t("组件选项"); onClicked: optionsMenu.open() }
+                    ToolButton { objectName: "desktopWidgetHide"; implicitWidth: 30; implicitHeight: 30; flat: true; icon.name: "ic_fluent_dismiss_20_regular"; Accessible.name: I18n.t("隐藏组件"); onClicked: widget.hideWidget() }
                 }
             }
             ListView {
@@ -210,28 +210,28 @@ QtWindow.Window {
                     HoverHandler { id: hover }
                     RowLayout {
                         anchors.fill: parent; anchors.margins: 6; spacing: 8
-                        CheckBox { objectName: "DesktopTaskCheckbox_"+String(modelData.id); visible: widget.currentSection===0; Layout.preferredWidth: 28; Layout.preferredHeight: 32; checked: Boolean(modelData.done); Accessible.name: "完成 " + widget.itemTitle(modelData); onClicked: Backend.toggleTask(Number(modelData.id),checked) }
+                        CheckBox { objectName: "DesktopTaskCheckbox_"+String(modelData.id); visible: widget.currentSection===0; Layout.preferredWidth: 28; Layout.preferredHeight: 32; checked: Boolean(modelData.done); Accessible.name: I18n.t("完成 ") + widget.itemTitle(modelData); onClicked: Backend.toggleTask(Number(modelData.id),checked) }
                         Icon { visible: widget.currentSection!==0; name: widget.itemIcon(); size: 18; color: Theme.currentTheme.colors.primaryColor }
                         ColumnLayout { Layout.fillWidth: true; Layout.minimumWidth: 0; spacing: 3
                             Text { Layout.fillWidth: true; text: widget.itemTitle(modelData); font.pixelSize: 14; font.weight: Font.Medium; wrapMode: Text.Wrap; maximumLineCount: 2; elide: Text.ElideRight; lineHeightMode: Text.ProportionalHeight; lineHeight: 1.15 }
-                            Text { Layout.fillWidth: true; text: modelData.dailyStatus==="important" ? "昨日未完成" : widget.itemSubtitle(modelData); visible: text.length>0 && text!=="待开始"; font.pixelSize: 11; elide: Text.ElideRight; maximumLineCount: 1; wrapMode: Text.NoWrap; color: Theme.currentTheme.colors.textSecondaryColor }
+                            Text { Layout.fillWidth: true; text: modelData.dailyStatus==="important" ? I18n.t("昨日未完成") : widget.itemSubtitle(modelData); visible: text.length>0 && text!==I18n.t("待开始"); font.pixelSize: 11; elide: Text.ElideRight; maximumLineCount: 1; wrapMode: Text.NoWrap; color: Theme.currentTheme.colors.textSecondaryColor }
                         }
-                        ToolButton { objectName: "desktopFocus_"+String(modelData.id); implicitWidth: 32; implicitHeight: 32; flat: true; icon.name: "ic_fluent_play_20_regular"; opacity: hover.hovered || activeFocus ? 1 : 0.55; Accessible.name: "专注 " + widget.itemTitle(modelData); ToolTip.text: "开始专注"; ToolTip.visible: hovered; onClicked: widget.openPreparation(modelData) }
+                        ToolButton { objectName: "desktopFocus_"+String(modelData.id); implicitWidth: 32; implicitHeight: 32; flat: true; icon.name: "ic_fluent_play_20_regular"; opacity: hover.hovered || activeFocus ? 1 : 0.55; Accessible.name: I18n.t("专注 ") + widget.itemTitle(modelData); ToolTip.text: I18n.t("开始专注"); ToolTip.visible: hovered; onClicked: widget.openPreparation(modelData) }
                     }
                 }
-                Text { anchors.centerIn: parent; visible: !widget.currentItems.length; text: "暂时没有待办，歇一会儿。"; font.pixelSize: 13; color: Theme.currentTheme.colors.textSecondaryColor }
+                Text { anchors.centerIn: parent; visible: !widget.currentItems.length; text: I18n.t("暂时没有待办，歇一会儿。"); font.pixelSize: 13; color: Theme.currentTheme.colors.textSecondaryColor }
             }
         }
     }
     Menu {
         id: optionsMenu; parent: options
         x: parent.width-width; y: parent.height+4
-        MenuItem { text: "待办任务"; checkable: true; checked: widget.currentSection===0; onTriggered: widget.currentSection=0 }
-        MenuItem { text: "任务流"; checkable: true; checked: widget.currentSection===1; onTriggered: widget.currentSection=1 }
-        MenuItem { text: "项目"; checkable: true; checked: widget.currentSection===2; onTriggered: widget.currentSection=2 }
+        MenuItem { text: I18n.t("待办任务"); checkable: true; checked: widget.currentSection===0; onTriggered: widget.currentSection=0 }
+        MenuItem { text: I18n.t("任务流"); checkable: true; checked: widget.currentSection===1; onTriggered: widget.currentSection=1 }
+        MenuItem { text: I18n.t("项目"); checkable: true; checked: widget.currentSection===2; onTriggered: widget.currentSection=2 }
         MenuSeparator { }
-        MenuItem { text: "固定位置"; checkable: true; checked: widget.widgetLocked; onTriggered: widget.toggleLocked() }
-        MenuItem { text: "紧凑高度"; checkable: true; checked: widget.compactMode; onTriggered: { widget.compactMode=!widget.compactMode; Backend.setSetting("desktopWidgetCompact",widget.compactMode); widget.applyPreferences(); widget.fitContent() } }
-        MenuItem { text: "刷新内容"; onTriggered: { Backend.reload(); widget.reload() } }
+        MenuItem { text: I18n.t("固定位置"); checkable: true; checked: widget.widgetLocked; onTriggered: widget.toggleLocked() }
+        MenuItem { text: I18n.t("紧凑高度"); checkable: true; checked: widget.compactMode; onTriggered: { widget.compactMode=!widget.compactMode; Backend.setSetting("desktopWidgetCompact",widget.compactMode); widget.applyPreferences(); widget.fitContent() } }
+        MenuItem { text: I18n.t("刷新内容"); onTriggered: { Backend.reload(); widget.reload() } }
     }
 }

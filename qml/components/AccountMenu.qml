@@ -10,6 +10,7 @@ Item {
     height: 56
     property bool collapsed: false
     property var account: { try { return JSON.parse(Backend.accountJson) } catch (error) { return {name: "", usage: {}} } }
+    readonly property string displayName: account.local ? I18n.t("本地访客") : (account.name || "")
     signal accountRequested()
     signal aiRequested()
     signal settingsRequested()
@@ -23,7 +24,7 @@ Item {
         contentItem: RowLayout {
             spacing: 8
             AccountAvatar { objectName: "sidebarAccountAvatar"; Layout.preferredWidth: 24; Layout.preferredHeight: 24; Layout.alignment: Qt.AlignVCenter; account: control.account }
-            Text { objectName: "sidebarAccountName"; visible: !control.collapsed; Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredHeight: 28; Layout.alignment: Qt.AlignVCenter; verticalAlignment: Text.AlignVCenter; lineHeightMode: Text.ProportionalHeight; lineHeight: 1; text: control.account.name; typography: Typography.Body; elide: Text.ElideRight }
+            Text { objectName: "sidebarAccountName"; visible: !control.collapsed; Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredHeight: 28; Layout.alignment: Qt.AlignVCenter; verticalAlignment: Text.AlignVCenter; lineHeightMode: Text.ProportionalHeight; lineHeight: 1; text: control.displayName; typography: Typography.Body; elide: Text.ElideRight }
             AccountPlanBadge { objectName: "sidebarAccountBadge"; visible: !control.collapsed; Layout.alignment: Qt.AlignVCenter; Layout.preferredHeight: 28; plan: control.account.planId || "free" }
             Item { objectName: "sidebarAccountMore"; visible: !control.collapsed; Layout.preferredWidth: 20; Layout.preferredHeight: 28; Layout.alignment: Qt.AlignVCenter
                 Icon { anchors.centerIn: parent; name: "ic_fluent_more_horizontal_20_regular"; size: 16; color: Theme.currentTheme.colors.textSecondaryColor }
@@ -52,7 +53,7 @@ Item {
                     spacing: 10
                     AccountAvatar { Layout.preferredWidth: 24; Layout.preferredHeight: 24; account: control.account }
                     ColumnLayout { Layout.fillWidth: true; spacing: 2
-                        Text { Layout.fillWidth: true; text: control.account.name; typography: Typography.BodyStrong; elide: Text.ElideRight }
+                        Text { Layout.fillWidth: true; text: control.displayName; typography: Typography.BodyStrong; elide: Text.ElideRight }
                         Text { text: control.account.plan || ""; typography: Typography.Caption; color: Theme.currentTheme.colors.textSecondaryColor }
                     }
                     Icon { name: "ic_fluent_chevron_right_20_regular"; size: 12; color: Theme.currentTheme.colors.textSecondaryColor }
@@ -68,7 +69,7 @@ Item {
             Rin.MenuItem { objectName: "accountPageMenuItem"; text: I18n.t("我的账户"); icon.name: "ic_fluent_person_20_regular"; Layout.fillWidth: true; onTriggered: control.showAccount() }
             Rin.MenuItem { objectName: "accountServiceMenuItem"; text: I18n.t("AI 服务"); icon.name: "ic_fluent_sparkle_20_regular"; Layout.fillWidth: true; onTriggered: { menu.close(); control.aiRequested() } }
             Rin.MenuItem { objectName: "accountSettingsMenuItem"; text: I18n.t("设置"); icon.name: "ic_fluent_settings_20_regular"; Layout.fillWidth: true; onTriggered: { menu.close(); control.settingsRequested() } }
-            Rin.MenuItem { objectName: "accountLogoutMenuItem"; visible: !control.account.local; text: "退出登录"; icon.name: "ic_fluent_sign_out_20_regular"; Layout.fillWidth: true; onTriggered: { menu.close(); logoutConfirm.open() } }
+            Rin.MenuItem { objectName: "accountLogoutMenuItem"; visible: !control.account.local; text: I18n.t("退出登录"); icon.name: "ic_fluent_sign_out_20_regular"; Layout.fillWidth: true; onTriggered: { menu.close(); logoutConfirm.open() } }
         }
     }
     LogoutConfirmDialog { id: logoutConfirm; objectName: "accountMenuLogoutDialog" }

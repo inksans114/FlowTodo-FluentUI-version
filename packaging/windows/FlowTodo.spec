@@ -4,7 +4,8 @@ from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, co
 
 root = Path(SPECPATH).resolve().parents[1]
 resources = ['qml', 'focus-studio', 'supervision-models', 'supervision-web', 'i18n',
-             'vendor/RinUI', 'logopromax.ico', 'audio.mp3', 'CLASS_WIDGETS_2_LICENSE.txt']
+             'vendor/RinUI', 'logopromax.ico', 'audio.mp3', 'CLASS_WIDGETS_2_LICENSE.txt',
+             'start_compatibility.bat']
 datas = [(str(root / name), name if (root / name).is_dir() else '.') for name in resources]
 datas += [(str(root / 'tools/allow_phone_camera.ps1'), 'tools')]
 binaries = []

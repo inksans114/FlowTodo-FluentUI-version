@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "vendor"))
 
 APP_FILES = (
+    "qml/pages/AboutPage.qml", "qml/pages/UpdatePage.qml", "qml/components/UpdatePanel.qml",
     "qml/components/AccountAvatar.qml", "qml/components/AvatarCropDialog.qml", "qml/components/StudioTokens.qml",
     "qml/pages/UserAccount.qml", "qml/components/AccountMenu.qml", "qml/components/AccountQuota.qml",
     "qml/components/InlineHelp.qml", "qml/components/QuietMenu.qml", "qml/components/JourneySpinBox.qml",

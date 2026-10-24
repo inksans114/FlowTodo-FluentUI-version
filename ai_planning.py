@@ -45,6 +45,9 @@ def request_plan(call, messages, extract, long_mode=False, capture=False, retry_
     No fragment is imported. Task counts are not reduced to make a reply fit.
     retry_call optionally adapts provider output budgets, without changing settings.
     """
+    from ai_output_language import MARKER, localized_messages, output_language
+    pinned_language = output_language(messages) if any(
+        item.get('role') == 'system' and MARKER.search(str(item.get('content', ''))) for item in messages) else None
     recoverable = (AIOutputLimit, AIContextLimit, AIResponseParseError, AIIncompleteCapture, json.JSONDecodeError)
     calls = 0
     compacted = False
@@ -56,6 +59,8 @@ def request_plan(call, messages, extract, long_mode=False, capture=False, retry_
     while calls < 4:
         calls += 1
         try:
+            if pinned_language:
+                sent = localized_messages(sent, pinned_language)
             text = (retry_call(sent, long_mode=long_mode, failure=failure)
                     if failure is not None and retry_call is not None
                     else call(sent, long_mode=long_mode))

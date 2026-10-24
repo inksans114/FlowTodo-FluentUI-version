@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
@@ -61,7 +61,7 @@ FluentPage {
                 Layout.fillWidth: true
                 placeholderText: I18n.t("模型名称，例如 gpt-4o-mini")
                 onEditingFinished: if (!page.loading) Backend.setSetting("aiModel", text.trim()) }
-            Text { visible: page.officialService; Layout.fillWidth: true; wrapMode: Text.Wrap; text: page.cloud.loggedIn ? "官方通道 · " + ((page.cloud.account || {}).user || {}).plan + " · 剩余 " + (((page.cloud.account || {}).officialAI || {}).remaining || 0) + " 次\n" + ((((page.cloud.account || {}).officialAI || {}).active) ? "订阅和金额额度由后台管理。" : "官方通道尚未开放或当前账户未开通额度。") : "请先在我的账户登录。"; typography: Typography.Body }
+            Text { visible: page.officialService; Layout.fillWidth: true; wrapMode: Text.Wrap; text: page.cloud.loggedIn ? I18n.t("官方通道 · ") + ((page.cloud.account || {}).user || {}).plan + I18n.t(" · 剩余 ") + (((page.cloud.account || {}).officialAI || {}).remaining || 0) + I18n.t(" 次\n") + ((((page.cloud.account || {}).officialAI || {}).active) ? I18n.t("订阅和金额额度由后台管理。") : I18n.t("官方通道尚未开放或当前账户未开通额度。")) : I18n.t("请先在我的账户登录。"); typography: Typography.Body }
             Text { visible: page.customService; text: "API Key"; typography: Typography.Caption }
             JourneyField { id: apiKey
                 visible: page.customService

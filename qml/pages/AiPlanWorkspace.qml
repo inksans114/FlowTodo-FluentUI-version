@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
@@ -147,7 +147,7 @@ FluentPage {
                     Item { Layout.fillHeight: true }
                     Button { Layout.fillWidth: true
                 objectName: "detailedPlanImportButton"
-                text: "导入待办、任务流与日程"
+                text: I18n.t("导入待办、任务流与日程")
                 highlighted: true
                 enabled: Boolean(page.plan) && !Backend.aiRequestRunning
                 icon.name: "ic_fluent_arrow_import_20_regular"; onClicked: Backend.applyAiPlan(JSON.stringify(page.plan)) }

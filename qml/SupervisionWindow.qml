@@ -1,11 +1,12 @@
 import QtQuick
+import "i18n"
 import QtQuick.Window
 import "components"
 
 Window {
     id: window
     objectName: "supervisionWindow"
-    title: "FlowTodo · 监督模式"
+    title: I18n.t("FlowTodo · 监督模式")
     visible: false
     property bool compact: false
     width: 430; height: 420

@@ -12,9 +12,6 @@ FluentPage {
     horizontalPadding: 32
     contentSpacing: 18
     property bool loading: true
-    readonly property var languageOptions: Backend.availableLanguages
-    readonly property var languageLabels: languageOptions.map(function(option) { return option.label })
-    function languageIndexOf(code) { for (var i = 0; i < languageOptions.length; i++) { if (languageOptions[i].code === code) return i } return 0 }
     function nav() { var item = page; while (item) { if (item.objectName === "MainNavigationView") return item; item = item.parent } return null }
     function load() {
         loading = true
@@ -27,7 +24,6 @@ FluentPage {
         soundVolume.value = Math.round(Number(Backend.getSetting("notificationSoundVolume", 0.8)) * 100)
         var configuredSound = String(Backend.getSetting("notificationSoundPath", ""))
         soundPath.text = configuredSound.length ? configuredSound : I18n.t("使用默认音效")
-        languageBox.currentIndex = page.languageIndexOf(String(Backend.language))
         loading = false
     }
     function resetAllData() { Backend.clearAllUserData() }
@@ -124,7 +120,6 @@ FluentPage {
         }
     }
     Connections { target: Backend
-                function onLanguageChanged() { languageBox.currentIndex = page.languageIndexOf(String(Backend.language)) }
                 function onSettingsChanged() { if (!page.loading) page.load() } }
     Text { text: I18n.t("提醒音效")
                 typography: Typography.Subtitle }
@@ -154,28 +149,6 @@ FluentPage {
                 Button { text: I18n.t("试听"); icon.name: "ic_fluent_play_20_regular"; onClicked: Backend.previewNotificationSound() }
                 Button { flat: true; text: I18n.t("恢复默认"); onClicked: { Backend.setSetting("notificationSoundPath", ""); soundPath.text = I18n.t("使用默认音效") } }
             }
-        }
-    }
-    Text { text: I18n.t("语言")
-                typography: Typography.Subtitle }
-    Frame { Layout.fillWidth: true
-                leftPadding: 18
-                rightPadding: 18
-                topPadding: 16
-                bottomPadding: 16
-        contentItem: RowLayout {
-                ColumnLayout { Layout.fillWidth: true; Layout.minimumWidth: 0; Layout.preferredWidth: 0
-                spacing: 2
-                Text { text: I18n.t("界面语言")
-                typography: Typography.BodyStrong }
-                Text { Layout.fillWidth: true; wrapMode: Text.Wrap; text: I18n.t("选择应用界面使用的语言")
-                typography: Typography.Caption
-                color: Theme.currentTheme.colors.textSecondaryColor } }
-                ComboBox { id: languageBox
-                objectName: "languageBox"
-                Layout.preferredWidth: 190
-                model: page.languageLabels
-                onActivated: function(index) { if (!page.loading) Backend.setLanguage(page.languageOptions[index].code) } }
         }
     }
     Text { text: I18n.t("应用")

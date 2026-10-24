@@ -109,7 +109,7 @@ FluentPage {
                         }
                         Rin.Button {
                             objectName: "loginSendCode"; Layout.preferredHeight: 44; Layout.preferredWidth: 108
-                            text: page.cooldown ? page.cooldown + "s 后重发" : I18n.t("获取验证码")
+                            text: page.cooldown ? page.cooldown + I18n.t("s 后重发") : I18n.t("获取验证码")
                             enabled: page.emailValid && !page.cloud.busy && page.cooldown === 0
                             onClicked: Backend.cloudSendCode(email.text)
                         }

@@ -211,14 +211,14 @@ FluentPage {
                 }
             }
             RowLayout { Layout.fillWidth: true
-                Text { Layout.fillWidth: true; text: page.needsLogin ? I18n.t("登录后可使用官方 AI，你的输入会保留") : !Backend.aiServiceReady ? I18n.t("AI 服务未就绪，请检查服务与额度") : page.account.service === "custom" ? I18n.t("自定义 API") : (page.account.plan || "Free") + " · 剩余 " + Number((page.account.usage || {}).remaining || 0) + I18n.t(" 次"); font.pixelSize: 12; color: look.muted }
+                Text { Layout.fillWidth: true; text: page.needsLogin ? I18n.t("登录后可使用官方 AI，你的输入会保留") : !Backend.aiServiceReady ? I18n.t("AI 服务未就绪，请检查服务与额度") : page.account.service === "custom" ? I18n.t("自定义 API") : (page.account.plan || "Free") + I18n.t(" · 剩余 ") + Number((page.account.usage || {}).remaining || 0) + I18n.t(" 次"); font.pixelSize: 12; color: look.muted }
                 JourneyButton { objectName: "captureServiceAction"; visible: !page.serviceReady; flat: true; text: page.needsLogin ? I18n.t("登录并使用 AI") : I18n.t("检查服务与额度"); onClicked: page.openService() }
             }
         }
     }
     JourneyButton { visible: !page.editOriginal; flat: true; text: I18n.t("修改刚才的描述"); onClicked: page.editOriginal = true }
     RowLayout { visible: !page.editOriginal; Layout.fillWidth: true
-        Text { Layout.fillWidth: true; text: page.account.service === "custom" ? I18n.t("自定义 API") : (page.account.plan || "Free") + " · 剩余 " + Number((page.account.usage || {}).remaining || 0) + I18n.t(" 次"); font.pixelSize: 12; color: look.muted }
+        Text { Layout.fillWidth: true; text: page.account.service === "custom" ? I18n.t("自定义 API") : (page.account.plan || "Free") + I18n.t(" · 剩余 ") + Number((page.account.usage || {}).remaining || 0) + I18n.t(" 次"); font.pixelSize: 12; color: look.muted }
         JourneyButton { objectName: "captureServiceAction"; visible: !page.serviceReady; flat: true; text: page.needsLogin ? I18n.t("登录并使用 AI") : I18n.t("检查服务与额度"); onClicked: page.openService() }
     }
     Text { Layout.fillWidth: true; visible: text.length > 0 && !page.guidance; text: page.summary; wrapMode: Text.Wrap }

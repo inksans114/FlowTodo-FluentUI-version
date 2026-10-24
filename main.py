@@ -856,7 +856,7 @@ class BackendBridge(QObject):
             raise ValueError("AI 返回的内容不是 JSON 对象")
 
         normalized = {
-            "title": str(plan.get("title") or "AI 个性化计划"),
+            "title": str(plan.get("title") or tr("AI 个性化计划")),
             "summary": str(plan.get("summary") or ""),
             "mode": "long" if plan.get("mode") == "long" or isinstance(plan.get("longPlan"), dict) else "short",
             "tasks": [],
@@ -880,7 +880,7 @@ class BackendBridge(QObject):
             normalized["tasks"].append({
                 "id": self._new_id(index),
                 "title": title,
-                "meta": str(task.get("meta") or task.get("description") or "AI 规划任务"),
+                "meta": str(task.get("meta") or task.get("description") or tr("AI 规划任务")),
                 "done": False,
                 "scheduledDate": str(task.get("scheduledDate") or ""),
                 "scheduledTime": str(task.get("scheduledTime") or ""),
@@ -908,11 +908,11 @@ class BackendBridge(QObject):
                     "type": str(step.get("type") or "focus")
                 })
             if not steps:
-                steps = [{"name": "开始执行", "duration": 25, "type": "focus"}]
+                steps = [{"name": tr("开始执行"), "duration": 25, "type": "focus"}]
             normalized["groups"].append({
                 "id": self._new_id(10000 + group_index),
                 "name": name,
-                "description": str(group.get("description") or group.get("desc") or "AI 生成任务流"),
+                "description": str(group.get("description") or group.get("desc") or tr("AI 生成任务流")),
                 "steps": steps,
                 "theme": str(group.get("theme") or "primary")
             })
@@ -939,7 +939,7 @@ class BackendBridge(QObject):
             normalized["projects"].append({
                 "id": self._new_id(20000 + project_index),
                 "name": name,
-                "desc": str(project.get("desc") or project.get("description") or "AI 生成项目"),
+                "desc": str(project.get("desc") or project.get("description") or tr("AI 生成项目")),
                 "progress": progress,
                 "taskCount": self._safe_int(project.get("taskCount"), len(milestones)),
                 "milestones": milestones
@@ -959,24 +959,24 @@ class BackendBridge(QObject):
                     for task in day.get("tasks") or []:
                         if isinstance(task, dict):
                             title = str(task.get("title") or "").strip()
-                            meta = str(task.get("meta") or task.get("description") or "AI 长期计划")
+                            meta = str(task.get("meta") or task.get("description") or tr("AI 长期计划"))
                         else:
                             title = str(task).strip()
-                            meta = "AI 长期计划"
+                            meta = tr("AI 长期计划")
                         if title:
                             tasks.append({"title": title, "meta": meta, "done": False})
                     days.append({
                         "day": self._safe_int(day.get("day"), day_index + 1),
                         "dateOffset": self._safe_int(day.get("dateOffset"), day_index),
-                        "focus": str(day.get("focus") or f"第 {day_index + 1} 天"),
+                        "focus": str(day.get("focus") or tr("第 {number} 天").format(number=day_index + 1)),
                         "tasks": tasks
                     })
                 cycles.append({
                     "index": self._safe_int(cycle.get("index"), cycle_index + 1),
-                    "title": str(cycle.get("title") or f"第 {cycle_index + 1} 周期"),
+                    "title": str(cycle.get("title") or tr("第 {number} 周期").format(number=cycle_index + 1)),
                     "goal": str(cycle.get("goal") or ""),
                     "days": days,
-                    "reviewPrompt": str(cycle.get("reviewPrompt") or "总结本周期的完成情况、卡点和掌握程度.")
+                    "reviewPrompt": str(cycle.get("reviewPrompt") or tr("总结本周期的完成情况、卡点和掌握程度。"))
                 })
             normalized["mode"] = "long"
             normalized["longPlan"] = {
@@ -986,7 +986,7 @@ class BackendBridge(QObject):
                 "totalCycles": self._positive_int(long_plan.get("totalCycles"), max(1, len(cycles)), minimum=1),
                 "roadmap": [str(item) for item in (long_plan.get("roadmap") or []) if str(item).strip()],
                 "cycles": cycles[:1] if cycles else [],
-                "nextCycleInstruction": str(long_plan.get("nextCycleInstruction") or "周期结束后,请根据复盘反馈重新生成下一周期.")
+                "nextCycleInstruction": str(long_plan.get("nextCycleInstruction") or tr("周期结束后，请根据复盘反馈重新生成下一周期。"))
             }
 
         return normalized
@@ -1848,7 +1848,10 @@ class BackendBridge(QObject):
 
     def _ai_system_prompt(self, long_mode=False, capture=False, capture_phase="intake"):
         from ai_planning import system_prompt
-        return system_prompt(long_mode, capture, capture_phase)
+        from ai_output_language import language_instruction
+        from i18n_runtime import translator
+        language = self.settings_database.get("language") or translator().language
+        return system_prompt(long_mode, capture, capture_phase) + "\n\n" + language_instruction(language)
 
     def _ai_context_message(self):
         from ai_planning import compact_context
@@ -1880,6 +1883,9 @@ class BackendBridge(QObject):
 
     def _call_ai_chat(self, messages, long_mode=False, output_limit=None):
         """调用 OpenAI 兼容 API 发送对话请求,返回助手回复文本."""
+        from ai_output_language import localized_messages
+        from i18n_runtime import translator
+        messages = localized_messages(messages, self.settings_database.get("language") or translator().language)
         api_key = str(self.settings_database.get("aiApiKey") or "").strip()
         model = str(self.settings_database.get("aiModel") or "gpt-4o-mini").strip()
         if not api_key:
@@ -2012,7 +2018,7 @@ class BackendBridge(QObject):
                 added = {"tasks": 0, "groups": 0, "projects": 0}
             assistant_text = str(plan.get("summary") or "").strip()
             if not assistant_text:
-                assistant_text = f"已生成《{plan.get('title', 'AI 个性化计划')}》,并准备好导入."
+                assistant_text = tr("已生成《{title}》，并准备好导入。").format(title=plan.get('title') or tr('AI 个性化计划'))
             result = {
                 "ok": True,
                 "guidedRequestId": guided_request_id,

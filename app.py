@@ -41,11 +41,17 @@ for stream in (sys.stdout, sys.stderr):
     except (AttributeError, OSError):
         pass
 
+from runtime_diagnostics import install, install_qt_logging, checkpoint  # noqa: E402
+install()
+checkpoint("Loading optional native packages")
+
 # MediaPipe's optional drawing imports use six virtual modules. Importing the
 # vision packages before PySide's __feature__ import hook avoids a Windows
 # shiboken/six incompatibility. This loads code only; no models or devices open.
 from supervision_environment import bootstrap  # noqa: E402
 bootstrap()
+checkpoint("Optional native packages loaded; importing Qt and backend")
+install_qt_logging()
 
 from RinUI import RinUIWindow  # noqa: E402
 from PySide6.QtCore import QCoreApplication, QObject, QEvent, QTimer, Qt, Slot  # noqa: E402
@@ -56,7 +62,6 @@ from compat_backend import RinUIBackend  # noqa: E402
 from dpi_utils import DpiService  # noqa: E402
 from notification_audio import play_notification_sound, set_backend as set_audio_backend  # noqa: E402
 from i18n_runtime import tr, translator  # noqa: E402
-from updater import UpdateManager  # noqa: E402
 from version import APP_VERSION  # noqa: E402
 
 
@@ -168,6 +173,7 @@ class TrayController(QObject):
 
 
 def main() -> int:
+    checkpoint("Creating QApplication; version=" + APP_VERSION)
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
     app = QApplication(sys.argv)
     QCoreApplication.setOrganizationName("FlowTodo")
@@ -184,6 +190,7 @@ def main() -> int:
         try:register_protocol(compiled=globals().get('__compiled__'))
         except OSError:pass  # Browser polling remains available if OS registration is restricted.
 
+    checkpoint("Creating backend")
     backend = RinUIBackend()
     set_audio_backend(backend)
     dpi_service = DpiService(app)
@@ -193,7 +200,9 @@ def main() -> int:
     # Every QML engine needs the translator before loading, because the I18n
     # singleton resolves it as a root context property.
     window.engine.rootContext().setContextProperty("I18nBridge", translator())
+    checkpoint("Loading main QML window")
     window.load(BASE_DIR / "qml" / "Main.qml")
+    checkpoint("Main QML window loaded")
     window.setIcon(BASE_DIR / "logopromax.ico")
     backend.attach_native_window(window.root_window)
     backend.attach_qml_engine(window.engine)
@@ -209,23 +218,24 @@ def main() -> int:
     tray_controller = TrayController(app, backend, window.root_window)
     backend.settingsChanged.connect(tray_controller._sync_visibility)
     backend.signalTaskReminder.connect(tray_controller.show_task_reminder)
-    update_manager = UpdateManager(app)
-    update_manager.statusChanged.connect(
-        lambda level, title, message: backend.messageRequested.emit(level, title, message)
-    )
+    update_manager = backend._update_manager
     update_manager.quitRequested.connect(tray_controller.quit_application)
     # Keep the controller alive for the lifetime of the application.
     app._flowtodo_tray_controller = tray_controller
     app._flowtodo_update_manager = update_manager
     app._flowtodo_dpi_service = dpi_service
     app.aboutToQuit.connect(backend.shutdown)
+    app.aboutToQuit.connect(lambda: checkpoint("Qt aboutToQuit received"))
     # Delay network work until the first window has finished rendering.
     if "--smoke-test" in sys.argv:
         # Build verification: no updater requests, camera or microphone capture.
         QTimer.singleShot(1000, app.quit)
     else:
-        QTimer.singleShot(1800, update_manager.check_for_updates)
-    return app.exec()
+        QTimer.singleShot(1800, update_manager.automatic_check)
+    checkpoint("Starting Qt event loop")
+    result = app.exec()
+    checkpoint("Qt event loop exited: " + str(result))
+    return result
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-﻿import QtQuick
+import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import RinUI
@@ -12,6 +12,9 @@ FluentPage {
     horizontalPadding: 32
     contentSpacing: 18
     property bool loading: true
+    readonly property var languageOptions: Backend.availableLanguages
+    readonly property var languageLabels: languageOptions.map(function(option) { return option.label })
+    function languageIndexOf(code) { for (var i = 0; i < languageOptions.length; i++) { if (languageOptions[i].code === code) return i } return 0 }
     property string accent: "#0f6cbd"
     property var palette: ["#0f6cbd", "#0078d4", "#107c10", "#d83b01", "#b146c2", "#8764b8", "#00b7c3", "#e74856"]
     function nav() { var item = page; while (item) { if (item.objectName === "MainNavigationView") return item; item = item.parent } return null }
@@ -20,8 +23,9 @@ FluentPage {
     function setMode(index) { Theme.setTheme(index === 0 ? Theme.mode.Auto : index === 1 ? Theme.mode.Light : Theme.mode.Dark); if (!loading) Backend.setSetting("theme", ["auto", "light", "dark"][index]) }
     function setBackdrop(index) { Theme.setBackdropEffect(["none", "mica", "acrylic"][index]); if (!loading) Backend.setSetting("nativeBackdrop", ["none", "mica", "acrylic"][index]) }
     Component.onCompleted: load()
+    Connections { target: Backend; function onLanguageChanged() { languageBox.currentIndex = page.languageIndexOf(String(Backend.language)) } }
     readonly property bool customEligible: { Backend.accountJson; try { return JSON.parse(Backend.appearanceJson).eligible } catch(e) { return false } }
-    Button { text: page.customEligible ? "会员个性化 · 配色、文字与图标" : "会员个性化 · Lite / Standard 解锁"; onClicked: { var router=page.nav();if(router)router.push(Qt.resolvedUrl("CustomAppearance.qml")) } }
+    Button { text: page.customEligible ? I18n.t("会员个性化 · 配色、文字与图标") : I18n.t("会员个性化 · Lite / Standard 解锁"); onClicked: { var router=page.nav();if(router)router.push(Qt.resolvedUrl("CustomAppearance.qml")) } }
     RowLayout { Layout.fillWidth: true
                 ToolButton { icon.name: "ic_fluent_arrow_left_20_regular"
                 ToolTip.text: I18n.t("返回系统设置")
@@ -31,6 +35,28 @@ FluentPage {
                 typography: Typography.Caption
                 color: Theme.currentTheme.colors.textSecondaryColor }
                 Item { Layout.fillWidth: true } }
+    Frame {
+        Layout.fillWidth: true
+        padding: 18
+        contentItem: RowLayout {
+            spacing: 24
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.minimumWidth: 0
+                spacing: 2
+                Text { text: I18n.t("界面语言"); typography: Typography.BodyStrong }
+                Text { Layout.fillWidth: true; text: I18n.t("选择应用界面使用的语言"); wrapMode: Text.Wrap; typography: Typography.Caption; color: Theme.currentTheme.colors.textSecondaryColor }
+            }
+            ComboBox {
+                id: languageBox
+                objectName: "languageBox"
+                Layout.preferredWidth: 190
+                currentIndex: page.languageIndexOf(String(Backend.language))
+                model: page.languageLabels
+                onActivated: function(index) { Backend.setLanguage(page.languageOptions[index].code) }
+            }
+        }
+    }
     Frame { Layout.fillWidth: true
                 leftPadding: 18
                 rightPadding: 18

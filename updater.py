@@ -221,26 +221,51 @@ class UpdateManager(QObject):
     downloadProgress=Signal(int)
     stateChanged=Signal()
     _received=Signal(dict)
+    _installationFinished=Signal(bool,str)
     quitRequested=Signal()
     def __init__(self,parent=None,backend=None):
         super().__init__(parent);self.backend=backend;self._busy=False;self.release=None;self.manifest=None;self.asset=None;self._last_check=0;self._was_logged_in=False
         self.cache=Path(os.environ.get('LOCALAPPDATA') or tempfile.gettempdir())/'FlowTodo'/'updates'
         self._view={'currentVersion':APP_VERSION,'availableVersion':'','status':'idle','message':'启动和登录后检查更新。','progress':0,'notes':'','source':'','packaged':is_packaged_build(),'ready':False}
         self._received.connect(self._receive)
+        self._installationFinished.connect(self._installation_finished)
         if backend:backend.accountChanged.connect(self._account_changed)
+        if backend:backend.settingsChanged.connect(self.stateChanged.emit)
+        self._restore_pending()
     def _receive(self,value):self._view.update(value);self.stateChanged.emit()
-    def view(self):return {**self._view,'autoDownload':bool(self.setting('updateAutoDownload',True)),'serverUrl':self.setting('updateServerUrl',DEFAULT_SERVER_MANIFEST)}
+    def view(self):
+        store=bool(windows_package_family())
+        return {**self._view,'message':tr(self._view['message']),'busy':self._busy,
+                'autoDownload':bool(self.setting('updateAutoDownload',True)),
+                'storeManaged':store,'canInstall':is_packaged_build() and sys.platform=='win32' and not store,
+                'serverUrl':self.setting('updateServerUrl',DEFAULT_SERVER_MANIFEST)}
     def setting(self,key,default):return self.backend.settings_database.get(key,default) if self.backend else default
     def _account_changed(self):
         logged=bool(self.backend._cloud.logged_in())
-        if logged and not self._was_logged_in:self.check_for_updates()
+        if logged and not self._was_logged_in:self.automatic_check()
         self._was_logged_in=logged
+    def automatic_check(self):
+        if self.setting('updateAutoDownload',True):self.check_for_updates()
+
+    def _restore_pending(self):
+        if not is_packaged_build() or sys.platform!='win32' or windows_package_family():return
+        try:
+            pending=json.loads((self.cache/'pending.json').read_text(encoding='utf-8'))
+            stage=Path(pending['stage']).resolve()
+            if not stage.is_relative_to(self.cache.resolve()):return
+            plan=json.loads((stage/'plan.json').read_text(encoding='utf-8'))
+            if (plan.get('format')=='flowtodo-staged-v1' and plan.get('version')==pending.get('version')
+                and Path(plan['install_root']).resolve()==Path(sys.executable).resolve().parent
+                and is_newer_version(plan['version'])):
+                self._view.update(status='ready',ready=True,progress=100,availableVersion=plan['version'],
+                                  message='更新已下载，点击安装并重启后应用更新。')
+        except (OSError,ValueError,KeyError,TypeError):pass
     @Slot()
     def check_for_updates(self,manual=False):
         if windows_package_family():
             self._received.emit({'status':'store','message':'此版本由 Microsoft Store 管理更新，请在商店的下载页面检查更新。','ready':False,'availableVersion':''})
             return
-        if self._busy or (not manual and time.time()-self._last_check<600):return
+        if self._busy or self._view['ready'] or (not manual and time.time()-self._last_check<600):return
         self._last_check=time.time();self._busy=True;self._received.emit({'status':'checking','message':'正在检查 GitHub 和服务器…'})
         threading.Thread(target=self._check_worker,name='FlowTodoUpdateCheck',daemon=True).start()
     def _check_worker(self):
@@ -274,7 +299,10 @@ class UpdateManager(QObject):
                     except Exception:errors.append(tasks[future])
             candidates=[c for c in candidates if is_newer_version(c[0])]
             if not candidates:
-                self._received.emit({'status':'idle','message':'未发现更高的正式版本。'+('部分来源暂时无法连接。' if errors else '')});return
+                if len(errors)==2:
+                    self._received.emit({'status':'error','message':'无法连接更新服务，请稍后重试。'});return
+                self._received.emit({'status':'idle','availableVersion':'','notes':'','source':'',
+                                     'message':'部分更新来源无法连接，已连接的来源暂无新版本。' if errors else '未发现更高的正式版本。'});return
             tag,source_name,release,manifest=max(candidates,key=lambda c:version_key(c[0]));self.release=release;self.manifest=manifest;self.asset=select_windows_asset(release.assets) if release else None
             if release:
                 manifest_asset=next((a for a in release.assets if a.name=='FlowTodo-update.json'),None)
@@ -285,10 +313,12 @@ class UpdateManager(QObject):
                     if not is_newer_version(manifest['version']) or version_key(manifest['version'])!=version_key(tag):raise ValueError('更新清单版本与发布版本不一致。')
                     self.manifest=manifest
             notes=str((self.manifest or {}).get('notes') or (release.notes if release else ''))[:6000]
-            self._received.emit({'status':'available','availableVersion':tag,'source':source_name,'notes':notes,'message':'发现新版本，可以下载；安装将在下次启动时进行。','ready':False})
+            self._received.emit({'status':'available','availableVersion':tag,'source':source_name,'notes':notes,'message':'发现新版本，可以下载更新。','ready':False,'progress':0})
             if is_packaged_build() and sys.platform=='win32' and self.setting('updateAutoDownload',True):self._download_worker(tag)
         except Exception as error:self._received.emit({'status':'error','message':str(error)[:300]})
-        finally:self._busy=False
+        finally:
+            self._busy=False
+            self._received.emit({})
     @Slot()
     def download_update(self):
         if windows_package_family():return
@@ -298,7 +328,9 @@ class UpdateManager(QObject):
         def worker():
             try:self._download_worker(self._view['availableVersion'])
             except Exception as error:self._received.emit({'status':'error','message':str(error)[:300]})
-            finally:self._busy=False
+            finally:
+                self._busy=False
+                self._received.emit({})
         threading.Thread(target=worker,name='FlowTodoUpdateDownload',daemon=True).start()
     def _download_worker(self,tag):
         from update_files import stage_manifest,stage_archive
@@ -311,8 +343,31 @@ class UpdateManager(QObject):
         else:raise ValueError('发布版本缺少可自动更新的清单或完整 ZIP 包，请从发布页手动安装。')
         self.cache.mkdir(parents=True,exist_ok=True);pending=self.cache/'pending.json';temporary=self.cache/'pending.part'
         temporary.write_text(json.dumps({'version':tag,'stage':str(stage)},ensure_ascii=False),encoding='utf-8');os.replace(temporary,pending)
-        self._received.emit({'status':'ready','ready':True,'progress':100,'message':'更新已下载。关闭软件后，下次启动时安装；本地记录与设置保留。'})
-        self.statusChanged.emit('success','更新已准备好','下次启动时安装 '+tag+'，现在可以继续使用。')
+        self._received.emit({'status':'ready','ready':True,'progress':100,'message':'更新已下载，点击安装并重启后应用更新。'})
+        self.statusChanged.emit('success',tr('更新已准备好'),tr('可以继续使用，准备好后再安装并重启。'))
+
+    def install_update(self):
+        """Only an explicit user action may hand control to the installer."""
+        if self._busy or not self._view['ready'] or not self.view()['canInstall']:return
+        self._busy=True
+        self._received.emit({'status':'installing','message':'正在启动更新安装程序…'})
+        def worker():
+            try:
+                from update_installer import launch_pending
+                if not launch_pending(self.cache/'pending.json',APP_VERSION,is_newer_version):
+                    raise RuntimeError(tr('没有可安装的更新，请重新检查更新。'))
+                self._installationFinished.emit(True,'')
+            except Exception as error:self._installationFinished.emit(False,str(error)[:300])
+        threading.Thread(target=worker,name='FlowTodoUpdateInstall',daemon=True).start()
+
+    @Slot(bool,str)
+    def _installation_finished(self,ok,message):
+        self._busy=False
+        if ok:
+            self._received.emit({'message':'安装程序已就绪，正在退出并重启…'})
+            self.quitRequested.emit()
+        else:
+            self._received.emit({'status':'error','message':tr('安装程序未能启动，软件将继续运行。')+' '+message})
     def _download_asset(self,asset,tag):
         from update_files import trusted_url,file_hash
         trusted_url(asset.url,asset.url)

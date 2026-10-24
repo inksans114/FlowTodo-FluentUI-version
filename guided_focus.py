@@ -43,6 +43,7 @@ def validate_questions(value):
 
 
 def validate_guidance(value):
+    from i18n_runtime import tr
     if value is None:
         return None
     if not isinstance(value, dict):
@@ -71,7 +72,7 @@ def validate_guidance(value):
         result["steps"].append({"title": _text(step.get("title"), 100, "动作"),
                                 "detail": _text(step.get("detail"), 240, "做法"),
                                 "minutes": minutes, "type": kind,
-                                "encouragement": _text(step.get("encouragement", "这一小段确实推进了。"), 160, "完成回应")})
+                                "encouragement": _text(step.get("encouragement", tr("这一小段确实推进了。")), 160, "完成回应")})
     return result
 
 
@@ -82,7 +83,8 @@ def island_tasks(guidance):
 
 
 def rest_task(guidance):
-    return {"title": "离开作业，缓一缓", "subtitle": "可以喝口水、活动一下，或看看窗外。休息结束后，准备好了再继续。",
+    from i18n_runtime import tr
+    return {"title": tr("离开作业，缓一缓"), "subtitle": tr("可以喝口水、活动一下，或看看窗外。休息结束后，准备好了再继续。"),
             "type": "break", "time": guidance["breakMinutes"] * 60}
 
 
