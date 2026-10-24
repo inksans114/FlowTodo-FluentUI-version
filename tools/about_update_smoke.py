@@ -38,6 +38,8 @@ backend._update_manager._receive({"status": "downloading", "progress": 47, "prog
 backend._update_manager._busy = True; backend._update_manager.stateChanged.emit()
 QTest.qWait(250)
 assert find("updateDownloadProgress").property("value") == 47
+assert find("updateProgressFill").width() > 100
+assert find("updateProgressFill").height() >= 8
 assert not find("checkUpdatesButton").property("enabled")
 assert "50.0 MB / 100.0 MB" in find("updateTransferDetails").property("text")
 root.grabWindow().save(str(output / "update-downloading.png"))
@@ -50,6 +52,7 @@ for state in ("verifying", "staging"):
     QTest.qWait(250)
     assert not find("updateDownloadProgress").property("indeterminate")
     assert find("updateDownloadProgress").isVisible()
+    assert find("updateProgressFill").x() == 0
 
 with patch("updater.is_packaged_build", return_value=True), patch("updater.windows_package_family", return_value=""), patch("updater.sys.platform", "win32"):
     backend._update_manager._busy = False

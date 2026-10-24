@@ -146,12 +146,31 @@ ColumnLayout {
                 wrapMode: Text.Wrap; font.pixelSize: 13; lineHeightMode: Text.ProportionalHeight; lineHeight: 1.45; color: ui.muted
             }
             Text { visible: Boolean(panel.update.availableVersion); text: I18n.t("可用版本") + "  " + String(panel.update.availableVersion || ""); font.pixelSize: 13; font.weight: Font.Medium; color: ui.accent }
-            ProgressBar {
+            QQC.ProgressBar {
+                id: downloadBar
                 objectName: "updateDownloadProgress"; Layout.fillWidth: true
                 visible: panel.working || Boolean(panel.update.ready)
                 indeterminate: !panel.measurable && !panel.update.ready || panel.update.status === "downloading" && !panel.update.progressKnown
                 from: 0; to: 100; value: Math.max(0, Math.min(100, Number(panel.update.progress || 0)))
                 Accessible.name: panel.stateTitle
+                onIndeterminateChanged: { if (!indeterminate) progressFill.x = 0 }
+                implicitHeight: 8
+                background: Rectangle { implicitHeight: 8; radius: 4; color: ui.stroke }
+                contentItem: Item {
+                    implicitHeight: 8; clip: true
+                    Rectangle {
+                        id: progressFill
+                        objectName: "updateProgressFill"
+                        height: parent.height; radius: 4; color: ui.accent
+                        width: downloadBar.indeterminate ? parent.width * 0.28 : parent.width * downloadBar.visualPosition
+                        x: downloadBar.indeterminate ? -width : 0
+                        NumberAnimation on x {
+                            from: -progressFill.width; to: downloadBar.width
+                            duration: 1400; loops: Animation.Infinite
+                            running: downloadBar.indeterminate && downloadBar.visible
+                        }
+                    }
+                }
                 Behavior on value { NumberAnimation { duration: 180 } }
             }
             RowLayout {
